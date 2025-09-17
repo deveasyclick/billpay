@@ -1,0 +1,41 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DB_URL")
+}
+
+enum TransactionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FAILED
+  SUCCESS
+}
+
+enum TransactionCategory {
+  AIRTIME
+  DSTV
+  ELECTRICITY
+  DATA
+}
+
+
+model Transaction {
+  id    Int     @default(autoincrement()) @id
+  paymentReference String @unique() // request reference
+  category TransactionCategory // airtime, dstv, etc
+  number String // phone number or dstv number
+  status TransactionStatus? // pending, approved, rejected
+  amount Int // amount in naira
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

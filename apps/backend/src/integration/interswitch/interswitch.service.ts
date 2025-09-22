@@ -73,7 +73,6 @@ export class InterSwitchService {
               Authorization: `Basic ${basic}`,
               skipAuth: true, // bypass interceptor
             },
-            timeout: 5000,
           },
         );
         const data = resp.data as {
@@ -225,7 +224,7 @@ export class InterSwitchService {
     const { data } = await this.httpService.axiosRef.get<TransactionResponse>(
       `${this.config.get(
         'interswitchPaymentBaseUrl',
-      )!}/paymentgateway/api/v1/transactions?merchantcode=${this.config.get('interswitchMerchantCode')}&amount=${amount}&transactionreference=${transactionReference}`,
+      )!}/gettransaction.json?merchantCode=${this.config.get('interswitchMerchantCode')}&amount=${amount}&transactionReference=${transactionReference}`,
     );
     return data;
   }
@@ -272,18 +271,16 @@ export class InterSwitchService {
 
           let service: string = '';
           if (biller?.categoryName === 'Mobile/Recharge') {
-            if (biller?.categoryName.includes('Data')) {
+            if (item.BillerName.includes('Data')) {
               service = 'DATA';
             } else {
               // payment item for airtime must have 0 amount type so as to allow customer to buy any amount of airtime
               // this is not the case for DATA bills
-              if (item.AmountType !== 0) continue;
               service = 'AIRTIME';
             }
           }
 
           if (biller?.categoryName === 'Utility Bills') {
-            if (item.AmountType !== 0) continue;
             service = 'ELECTRICITY';
           }
 

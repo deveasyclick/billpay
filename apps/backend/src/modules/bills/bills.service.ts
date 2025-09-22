@@ -1,4 +1,9 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { InterSwitchService } from 'src/integration/interswitch/interswitch.service';
 import type {
   TransactionResponse,
@@ -13,11 +18,23 @@ import type { BillerItem } from 'src/common/types/billerItem';
 const BILL_ITEMS_CACHE_KEY = 'billItems';
 @Injectable()
 export class BillsService {
+  private readonly logger = new Logger(BillsService.name);
   constructor(
     private readonly interswitchService: InterSwitchService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
+  private async onModuleInit() {
+    try {
+      let items = await this.cacheManager.get(BILL_ITEMS_CACHE_KEY);
+      if (!items) {
+        console.log('cache miss, fetching billing items');
+        await this.fetchAllPlans();
+      }
+    } catch (err) {
+      console.log('error fetching billing items', err);
+    }
+  }
   /**
    * 🔹 Validate customer & amount
    */
@@ -95,10 +112,9 @@ export class BillsService {
       }
       throw err;
     }
-
     // Step 6: validate confirmed transaction
     if (!validateTransaction(confirmedTx, amountInKobo)) {
-      throw new BadRequestException('Payment confirmation mismatch or failed.');
+      throw new BadRequestException(confirmedTx.ResponseDescription);
     }
 
     // Step 7: call provider pay()
@@ -147,17 +163,22 @@ export class BillsService {
     return (
       err?.response?.status === 404 ||
       err?.response?.data?.ResponseCode === '30010' ||
-      /transaction not found/i.test(String(err?.message ?? ''))
+      err?.response?.data?.ResponseCode === 'Z25' ||
+      /transaction not found/i.test(String(err?.ResponseDescription ?? ''))
     );
   }
 
   async fetchAllPlans() {
-    let items = await this.cacheManager.get<BillerItem[]>(BILL_ITEMS_CACHE_KEY);
-    if (items) return items;
+    let cachedItems = await this.cacheManager.get<string>(BILL_ITEMS_CACHE_KEY);
+    if (cachedItems) {
+      console.log('served from cache');
+      return JSON.parse(cachedItems);
+    }
 
-    items = await this.interswitchService.refreshAllPlansFromInterswitch();
+    const items =
+      await this.interswitchService.refreshAllPlansFromInterswitch();
     const ttl = 60 * 60 * 24 * 1; // 1 days
-    this.cacheManager.set(BILL_ITEMS_CACHE_KEY, items, ttl);
+    this.cacheManager.set(BILL_ITEMS_CACHE_KEY, JSON.stringify(items), ttl);
     return items;
   }
 }

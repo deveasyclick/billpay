@@ -1,4 +1,10 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  InternalServerErrorException,
+  Post,
+} from '@nestjs/common';
 import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { BillsService } from './bills.service';
 import { PayBillDTO, PayBillResponseDTO } from './dtos/payment';
@@ -14,8 +20,7 @@ export class BillsController {
   @ApiBody({ type: PayBillDTO })
   @ApiOkResponse({ type: PayBillResponseDTO })
   async payBill(@Body() dto: PayBillDTO): Promise<PayBillResponseDTO> {
-    const data = await this.billsService.processBillPayment(dto);
-    return {
+    let data = {
       statusCode: 200,
       message: 'Success',
       data: {
@@ -23,9 +28,19 @@ export class BillsController {
         amount: dto.amount,
         requestReference: dto.requestReference,
         paymentCode: dto.paymentCode,
-        transactionRef: data.pay.TransactionRef,
+        transactionRef: '',
       },
     };
+
+    try {
+      const res = await this.billsService.processBillPayment(dto);
+      data.data.transactionRef = res.pay.TransactionRef;
+    } catch (err) {
+      console.log('err', err?.response?.data ?? err);
+      throw new InternalServerErrorException('Payment failed');
+    }
+
+    return data;
   }
 
   @Get('items')

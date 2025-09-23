@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 336.41 337.42"><defs><style>.cls-1{fill:#f0b90b;stroke:#f0b90b;}</style></defs><title>Asset 1</title><g id="Layer_2" data-name="Layer 2"><g id="Layer_1-2" data-name="Layer 1"><path class="cls-1" d="M168.2.71l41.5,42.5L105.2,147.71l-41.5-41.5Z"/><path class="cls-1" d="M231.2,63.71l41.5,42.5L105.2,273.71l-41.5-41.5Z"/><path class="cls-1" d="M42.2,126.71l41.5,42.5-41.5,41.5L.7,169.21Z"/><path class="cls-1" d="M294.2,126.71l41.5,42.5L168.2,336.71l-41.5-41.5Z"/></g></g><style xmlns="" class="darkreader darkreader--fallback">html, body, body :not(iframe) {
-    background-color: var(--darkreader-background-ffffff, #181a1b) !important;
-    border-color: var(--darkreader-border-404040, #776e62) !important;
-    color: var(--darkreader-text-000000, #e8e6e3) !important;
-}
-div[style*="background-color: rgb(135, 135, 135)"] {
-    background-color: #878787 !important;
-}</style></svg>

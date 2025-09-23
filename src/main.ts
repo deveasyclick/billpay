@@ -28,8 +28,8 @@ async function bootstrap() {
 
   // Swagger
   const config = new DocumentBuilder()
-    .setTitle('Bills POC')
-    .setDescription('The Bills POC API description')
+    .setTitle('Billpay')
+    .setDescription('The Billpay API description')
     .setVersion('1.0')
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);

@@ -22,7 +22,6 @@ class EnvironmentVariables {
   NODE_ENV: Environment;
 
   @IsNumber()
-  @Length(4)
   @IsOptional()
   PORT: number;
 

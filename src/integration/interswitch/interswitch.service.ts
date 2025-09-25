@@ -28,7 +28,7 @@ interface StoredToken {
 @Injectable()
 export class InterSwitchService {
   private pendingTokenPromise: Promise<string> | null = null;
-  private baseUrl: string;
+  private readonly baseUrl: string;
   constructor(
     private readonly config: ConfigService<Config>,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,

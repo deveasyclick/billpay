@@ -13,29 +13,79 @@ datasource db {
   url      = env("DB_URL")
 }
 
-enum TransactionStatus {
+enum PaymentStatus {
   PENDING
-  APPROVED
-  REJECTED
+  PROCESSING
+  PAID
   FAILED
-  SUCCESS
 }
 
-enum TransactionCategory {
-  AIRTIME
-  DSTV
-  ELECTRICITY
-  DATA
-}
-
-
-model Transaction {
-  id    Int     @default(autoincrement()) @id
-  paymentReference String @unique() // request reference
-  category TransactionCategory // airtime, dstv, etc
-  number String // phone number or dstv number
-  status TransactionStatus? // pending, approved, rejected
-  amount Int // amount in naira
+// Billing provider
+model Provider {
+  id        String   @id @default(uuid())
+  name      String   @unique               // e.g. "interswitch", "providerX"
+  active    Boolean @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  attempts  PaymentAttempt[]   
+}
+
+model PaymentRecord {
+  id                   String        @id @default(uuid())
+  requestReference     String        @unique  // unique identifier for this payment
+  status               PaymentStatus @default(PENDING)
+  amount               Int           // stored in kobo (minor unit)
+  currency             String        @default("NGN")
+  customerId           String
+  paymentCode          String
+  metadata             Json?         // any extra business metadata
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  attempts             PaymentAttempt[]  
+
+  @@index([status, createdAt])
+  @@map("payment_records")
+}
+
+model PaymentAttempt {
+  id                     String    @id @default(uuid())
+  paymentRecordId        String
+  providerId             String?   // nullable in case attempt created before provider chosen
+  attemptReference       String?   // provider-side request/transaction reference
+  providerStatus         String?   // raw provider status code (e.g., "90000" or "PENDING")
+  requestBody            Json?     // payload sent to provider
+  providerResponse       Json?     // provider raw response JSON
+  confirmedTransaction   Json?     // provider requery / confirmation JSON
+  isPrimary              Boolean   @default(false)  // primary attempt or fallback
+  retries                Int       @default(0)
+  lastError              String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  // Relations
+  paymentRecord PaymentRecord @relation(fields: [paymentRecordId], references: [id])
+  provider      Provider?     @relation(fields: [providerId], references: [id])
+
+  @@index([paymentRecordId, providerId])
+  @@unique([paymentRecordId, providerId, attemptReference], name: "unique_attempt_per_provider_if_ref") // attemptReference may be null; uniqueness ignored if null
+  @@map("payment_attempts")
+}
+
+model BillerPlan {
+  id            String   @id @default(uuid())       // e.g. "mtn-1gb-daily"
+  service       String                               // "DATA", "AIRTIME", "TV", "ELECTRICITY"
+  providerName  String                               // canonical provider display name (e.g. "MTN")
+  displayName   String
+  amount        Int                                  // stored in kobo (minor unit)
+  isAmountFixed Boolean  @default(true)
+  providerMeta  Json                                 // array of { providerName, paymentCode, serviceId, priority }
+  environment   String    @default("production")     // "test" | "production"
+  active        Boolean  @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([service, providerName, environment])
+  @@map("biller_plans")
 }

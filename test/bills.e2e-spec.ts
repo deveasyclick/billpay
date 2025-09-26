@@ -9,6 +9,7 @@ import {
   mockInterSwitchService,
 } from './mocks/interswitch';
 import { CacheModule } from '@nestjs/cache-manager';
+import { PaymentModule } from 'src/modules/payment/payment.module';
 
 // Mock InterSwitchService so tests don’t hit real API
 
@@ -20,6 +21,7 @@ describe('BillsController (e2e)', () => {
       imports: [
         ConfigModule.forRoot({ isGlobal: true }),
         CacheModule.register(),
+        PaymentModule,
         BillsModule,
       ],
     })

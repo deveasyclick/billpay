@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   Logger,
@@ -13,7 +14,7 @@ import { ProviderResult } from './bills.types';
 import type { PayBillDTO } from './dtos/payment';
 import { validateTransaction } from './utils/validateTransaction';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
-import type { BillerItem } from 'src/common/types/billerItem';
+import { PaymentService } from '../payment/payment.service';
 
 const BILL_ITEMS_CACHE_KEY = 'billItems';
 @Injectable()
@@ -21,6 +22,7 @@ export class BillsService {
   private readonly logger = new Logger(BillsService.name);
   constructor(
     private readonly interswitchService: InterSwitchService,
+    private readonly paymentService: PaymentService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
@@ -96,8 +98,46 @@ export class BillsService {
   }: PayBillDTO) {
     const amountInKobo = Math.round(amountInNaira * 100);
 
+    // Step 1: find or create payment record
+    let paymentRecord = await this.paymentService.findPaymentRecord({
+      requestReference,
+    });
+    if (!paymentRecord) {
+      paymentRecord = await this.paymentService.createPaymentRecord({
+        requestReference,
+        amount: amountInKobo,
+        customerId,
+        paymentCode,
+      });
+    }
+
+    // Step 2: enforce state machine rules
+    switch (paymentRecord.status) {
+      case 'PAID':
+        return { status: 'ALREADY_PROCESSED', data: paymentRecord };
+      case 'FAILED':
+        throw new ConflictException('Payment already failed, cannot retry.');
+      case 'PROCESSING':
+      case 'PENDING':
+        // continue with processing
+        break;
+    }
+
     // Step 3: validate customer *before* attempt creation
     await this.validateCustomerOrThrow(customerId, paymentCode, amountInKobo);
+
+    // Step 4: create provider attempt
+    let attempt = await this.paymentService.createPaymentAttempt({
+      paymentRecordId: paymentRecord.id,
+      providerName: 'interswitch',
+      isPrimary: true,
+      requestBody: {
+        customerId,
+        paymentCode,
+        amount: amountInKobo,
+        requestReference,
+      },
+    });
 
     // Step 5: confirm transaction with provider
     let confirmedTx: TransactionResponse | null = null;
@@ -108,6 +148,9 @@ export class BillsService {
       });
     } catch (err: any) {
       if (this.isTransactionNotFound(err)) {
+        await this.paymentService.markAttemptPending(attempt.id, {
+          lastError: 'Transaction not found yet',
+        });
         throw new BadRequestException('Transaction not found yet');
       }
       throw err;
@@ -130,12 +173,35 @@ export class BillsService {
 
     switch (providerResult) {
       case ProviderResult.SUCCESS:
+        await this.paymentService.markAttemptSuccess(attempt.id, {
+          providerStatus: payResp.ResponseCode,
+          providerResponse: JSON.stringify(payResp),
+          confirmedTransaction: confirmedTx,
+          attemptReference: payResp.TransactionRef,
+          requestBody: {
+            customerId,
+            paymentCode,
+            amount: amountInKobo,
+            requestReference,
+          },
+        });
         return { status: 'SUCCESS', pay: payResp };
 
       case ProviderResult.PENDING:
+        await this.paymentService.markAttemptPending(attempt.id, {
+          providerResponse: payResp,
+          confirmedTransaction: confirmedTx,
+          attemptReference: payResp.TransactionRef,
+        });
         return { status: 'PENDING', pay: payResp };
 
       case ProviderResult.FAILED:
+        await this.paymentService.markAttemptFailed(attempt.id, {
+          providerResponse: payResp,
+          confirmedTransaction: confirmedTx,
+          attemptReference: payResp.TransactionRef,
+          lastError: 'Bill payment failed',
+        });
         throw new BadRequestException({
           message: 'Bill payment failed. Contact support for reconciliation.',
           details: payResp,

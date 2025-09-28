@@ -19,3 +19,9 @@ export const validateTransaction = (
 
   return isSuccessfulTransaction && amount === transaction.Amount;
 };
+
+export const validateTransactionV2 = (responseCode): boolean => {
+  return (
+    responseCode === '00' || responseCode === '10' || responseCode === '11'
+  );
+};

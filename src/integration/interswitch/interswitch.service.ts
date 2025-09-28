@@ -7,7 +7,6 @@ import type {
   BillerCategoryResponse,
   BillersWithCategoriesResponse,
   PaymentItemsResponse,
-  PayObject,
   PayResponse,
   TransactionResponse,
   ValidateCustomersResponse,
@@ -18,6 +17,7 @@ import {
   SUPPORTED_BILL_ITEMS,
 } from './interswitch.constants';
 import type { BillerItem } from 'src/common/types/billerItem';
+import type { PayObject } from 'src/common/types/payment';
 
 interface StoredToken {
   access_token: string;

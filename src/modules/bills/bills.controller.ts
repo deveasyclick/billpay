@@ -38,7 +38,7 @@ export class BillsController {
       const res = await this.billsService.processBillPayment(dto);
       data.data.transactionRef = res.pay?.TransactionRef ?? '';
     } catch (err) {
-      this.logger.error('error processing bill payment', { err });
+      this.logger.error('error ', err?.response?.data ?? err);
       throw new InternalServerErrorException('Payment failed');
     }
 

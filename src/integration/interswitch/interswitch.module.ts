@@ -22,7 +22,6 @@ export class InterSwitchModule implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    this.logger.log('InterSwitchModule.onModuleInit', 'hello', 'msg');
     if ((InterSwitchModule as any).interceptorsRegistered) return;
     (InterSwitchModule as any).interceptorsRegistered = true;
 

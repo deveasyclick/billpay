@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   InternalServerErrorException,
+  Logger,
   Post,
 } from '@nestjs/common';
 import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -13,6 +14,7 @@ import { GetBillerItemsResponseDto } from './dtos/item';
 @Controller('bills')
 @ApiTags('Bills')
 export class BillsController {
+  private readonly logger = new Logger(BillsController.name);
   constructor(private readonly billsService: BillsService) {}
 
   @Post('pay')
@@ -36,7 +38,7 @@ export class BillsController {
       const res = await this.billsService.processBillPayment(dto);
       data.data.transactionRef = res.pay?.TransactionRef ?? '';
     } catch (err) {
-      console.log('err', err?.response?.data ?? err);
+      this.logger.error('error processing bill payment', { err });
       throw new InternalServerErrorException('Payment failed');
     }
 

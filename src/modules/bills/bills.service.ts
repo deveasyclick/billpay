@@ -26,17 +26,6 @@ export class BillsService {
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
-  private async onModuleInit() {
-    try {
-      let items = await this.cacheManager.get(BILL_ITEMS_CACHE_KEY);
-      if (!items) {
-        console.log('cache miss, fetching billing items');
-        await this.fetchAllPlans();
-      }
-    } catch (err) {
-      console.log('error fetching billing items', err);
-    }
-  }
   /**
    * 🔹 Validate customer & amount
    */
@@ -237,7 +226,7 @@ export class BillsService {
   async fetchAllPlans() {
     let cachedItems = await this.cacheManager.get<string>(BILL_ITEMS_CACHE_KEY);
     if (cachedItems) {
-      console.log('served from cache');
+      this.logger.log('served from cache');
       return JSON.parse(cachedItems);
     }
 

@@ -1,5 +1,5 @@
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
-import { HttpException, Inject, Injectable } from '@nestjs/common';
+import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Config } from 'src/config/configuration';
 import type {
@@ -27,6 +27,7 @@ interface StoredToken {
 
 @Injectable()
 export class InterSwitchService {
+  private readonly logger = new Logger(InterSwitchService.name);
   private pendingTokenPromise: Promise<string> | null = null;
   private readonly baseUrl: string;
   constructor(
@@ -329,9 +330,9 @@ export class InterSwitchService {
           // });
         }
       } catch (err) {
-        console.log(
+        this.logger.error(
           `Unable to fetch biller payment items for biller: ${biller.id}`,
-          err.response?.data ?? err?.message ?? err,
+          { err: err.response?.data ?? err?.message ?? err },
         );
       }
     }

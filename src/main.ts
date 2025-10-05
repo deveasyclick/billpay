@@ -1,13 +1,23 @@
+import { Logger, RequestMethod, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import { ConfigService } from '@nestjs/config';
-import { Logger, RequestMethod, ValidationPipe } from '@nestjs/common';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { WinstonModule } from 'nest-winston';
+import { AppModule } from './app.module';
+import { createWinstonLoggerOptions } from './common/logger/winston-logger';
+
+import { LoggingInterceptor } from './common/logger/logger.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: WinstonModule.createLogger(createWinstonLoggerOptions()),
+  });
+
+  // Apply the logging interceptor globally
+  app.useGlobalInterceptors(new LoggingInterceptor());
+
   app.use(helmet());
 
   // Cors

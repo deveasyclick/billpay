@@ -79,8 +79,7 @@ export class BillsService {
     return rules[type]?.() ?? false;
   }
 
-  // @deprecated
-  async processBillPayment({
+  public async processBillPayment({
     amount: amountInNaira,
     customerId,
     paymentCode,
@@ -224,7 +223,7 @@ export class BillsService {
     );
   }
 
-  async fetchAllPlans() {
+  public async fetchAllPlans() {
     let cachedItems = await this.cacheManager.get<string>(BILL_ITEMS_CACHE_KEY);
     if (cachedItems) {
       this.logger.log('served from cache');

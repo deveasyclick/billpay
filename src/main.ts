@@ -12,7 +12,6 @@ import { LoggingInterceptor } from './common/logger/logger.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    rawBody: true,
     logger: WinstonModule.createLogger(createWinstonLoggerOptions()),
   });
 

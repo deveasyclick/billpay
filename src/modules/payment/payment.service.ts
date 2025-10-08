@@ -4,6 +4,8 @@ import type { PaymentAttempt, PaymentRecord } from '@prisma/client';
 import { PayObject, ProviderResult } from 'src/common/types/payment';
 import { InterSwitchService } from 'src/integration/interswitch/interswitch.service';
 import type { PayResponse } from 'src/integration/interswitch/types';
+import type { CreatePaymentDto } from './dtos/create-payment';
+import { v4 as uuid } from 'uuid';
 
 @Injectable()
 export class PaymentService {
@@ -11,7 +13,7 @@ export class PaymentService {
     private readonly paymentRepo: PaymentRepository,
     private readonly interswitchService: InterSwitchService,
   ) {}
-  async pay(
+  public async pay(
     data: PayObject,
   ): Promise<{ status: ProviderResult; pay: PayResponse }> {
     const payResp = await this.interswitchService.pay({
@@ -124,11 +126,7 @@ export class PaymentService {
     attemptId: string,
     payload: Pick<
       PaymentAttempt,
-      | 'attemptReference'
-      | 'providerResponse'
-      | 'confirmedTransaction'
-      | 'providerStatus'
-      | 'requestBody'
+      'attemptReference' | 'providerResponse' | 'providerStatus'
     >,
   ) {
     const attempt = await this.paymentRepo.updatePaymentAttempt(
@@ -144,7 +142,7 @@ export class PaymentService {
   }
 
   // 4) mark attempt failure (persist error), optionally schedule fallback
-  async markAttemptFailed(
+  public async markAttemptFailed(
     attemptId: string,
     payload: {
       providerResponse?: any;
@@ -177,7 +175,7 @@ export class PaymentService {
     return attempt;
   }
 
-  async markAttemptPending(
+  public async markAttemptPending(
     attemptId: string,
     payload: {
       providerResponse?: any;
@@ -206,11 +204,37 @@ export class PaymentService {
     return attempt;
   }
 
-  async findPaymentRecord(where: Pick<PaymentRecord, 'requestReference'>) {
+  public async findPaymentRecord(
+    where: Pick<PaymentRecord, 'requestReference'>,
+  ) {
     return this.paymentRepo.findPaymentRecord(where);
   }
 
-  async findProvider(name: string) {
+  private async findProvider(name: string) {
     return this.paymentRepo.findProvider(name);
+  }
+
+  public async createPayment(data: CreatePaymentDto) {
+    const record = await this.paymentRepo.createPaymentRecord({
+      requestReference: uuid(),
+      amount: data.amount,
+      customerId: data.customerId,
+      paymentCode: data.paymentCode,
+      metadata: {},
+      status: 'PENDING',
+    });
+    let provider = await this.paymentRepo.findProvider('interswitch');
+    if (!provider) {
+      throw new BadRequestException('Unknown provider');
+    }
+    const attempt = await this.paymentRepo.createPaymentAttempt({
+      paymentRecordId: record.id,
+      providerId: provider.id,
+      isPrimary: true,
+      requestBody: JSON.stringify(data),
+      retries: 0,
+    });
+
+    return { record, attempt };
   }
 }

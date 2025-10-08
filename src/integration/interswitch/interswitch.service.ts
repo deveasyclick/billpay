@@ -214,8 +214,7 @@ export class InterSwitchService {
    * @param param0
    * @returns
    */
-  // TODO: Use webhook to confirm transaction
-  async confirmTransaction({
+  public async confirmTransaction({
     amount,
     transactionReference,
   }: {

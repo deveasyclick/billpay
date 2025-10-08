@@ -155,7 +155,6 @@ pnpm run test:cov
 
 - [ ] Add wallet system for users
 - [ ] Scheduled bill payments & auto-renewals
-- [ ] Webhooks for third-party integrations
 - [ ] GraphQL API support
 - [ ] Notifications (email/SMS/WhatsApp) for successful payments
 

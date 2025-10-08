@@ -149,6 +149,5 @@ Orchestrates business logic for bill payments:
 
 ## 📌 TODOs
 
-- [ ] Add **webhook-based transaction confirmation** (instead of polling)
 - [ ] Add support for **multi-provider fallback** (e.g., ProviderX if Interswitch fails)
 - [ ] Implement **reconciliation job** for pending/failed transactions

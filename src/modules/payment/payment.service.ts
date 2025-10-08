@@ -126,7 +126,11 @@ export class PaymentService {
     attemptId: string,
     payload: Pick<
       PaymentAttempt,
-      'attemptReference' | 'providerResponse' | 'providerStatus'
+      | 'attemptReference'
+      | 'providerResponse'
+      | 'providerStatus'
+      | 'confirmedTransaction'
+      | 'requestBody'
     >,
   ) {
     const attempt = await this.paymentRepo.updatePaymentAttempt(

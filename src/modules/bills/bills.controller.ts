@@ -22,27 +22,23 @@ export class BillsController {
   @ApiBody({ type: PayBillDTO })
   @ApiOkResponse({ type: PayBillResponseDTO })
   async payBill(@Body() dto: PayBillDTO): Promise<PayBillResponseDTO> {
-    let data = {
-      statusCode: 200,
-      message: 'Success',
-      data: {
-        customerId: dto.customerId,
-        amount: dto.amount,
-        requestReference: dto.requestReference,
-        paymentCode: dto.paymentCode,
-        transactionRef: '',
-      },
-    };
-
     try {
       const res = await this.billsService.processBillPayment(dto);
-      data.data.transactionRef = res.pay?.TransactionRef ?? '';
+      return {
+        statusCode: 200,
+        message: 'Success',
+        data: {
+          customerId: dto.customerId,
+          amount: dto.amount,
+          requestReference: dto.requestReference,
+          paymentCode: dto.paymentCode,
+          transactionRef: res.data.TransactionRef ?? '',
+        },
+      };
     } catch (err) {
       this.logger.error('error ', err?.response?.data ?? err);
       throw new InternalServerErrorException('Payment failed');
     }
-
-    return data;
   }
 
   @Get('items')

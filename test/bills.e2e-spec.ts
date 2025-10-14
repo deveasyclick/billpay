@@ -52,7 +52,7 @@ describe('BillsController (e2e)', () => {
     });
   });
 
-  describe.only('/bills/pay (POST)', () => {
+  describe('/bills/pay (POST)', () => {
     it('should pay a bill with paymentCode', async () => {
       const res = await request(app.getHttpServer()).post('/bills/pay').send({
         customerId: '08012345678',

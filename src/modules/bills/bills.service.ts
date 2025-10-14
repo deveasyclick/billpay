@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InterSwitchService } from 'src/integration/interswitch/interswitch.service';
 import type {
+  PayResponse,
   TransactionResponse,
   ValidateCustomersResponse,
 } from 'src/integration/interswitch/types';
@@ -84,26 +85,24 @@ export class BillsService {
     customerId,
     paymentCode,
     requestReference,
-  }: PayBillDTO) {
+  }: PayBillDTO): Promise<{ status: string; data: PayResponse }> {
     const amountInKobo = Math.round(amountInNaira * 100);
 
     // Step 1: find or create payment record
     let paymentRecord = await this.paymentService.findPaymentRecord({
       requestReference,
     });
-    if (!paymentRecord) {
-      paymentRecord = await this.paymentService.createPaymentRecord({
-        requestReference,
-        amount: amountInKobo,
-        customerId,
-        paymentCode,
-      });
-    }
+    paymentRecord ??= await this.paymentService.createPaymentRecord({
+      requestReference,
+      amount: amountInKobo,
+      customerId,
+      paymentCode,
+    });
 
     // Step 2: enforce state machine rules
     switch (paymentRecord.status) {
       case 'PAID':
-        return { status: 'ALREADY_PROCESSED', data: paymentRecord };
+        throw new ConflictException('Payment already processed, cannot retry.');
       case 'FAILED':
         throw new ConflictException('Payment already failed, cannot retry.');
       case 'PROCESSING':
@@ -174,7 +173,7 @@ export class BillsService {
             requestReference,
           },
         });
-        return { status: 'SUCCESS', pay: payResp };
+        return { status: 'SUCCESS', data: payResp };
 
       case ProviderResult.PENDING:
         await this.paymentService.markAttemptPending(attempt.id, {
@@ -182,7 +181,7 @@ export class BillsService {
           confirmedTransaction: confirmedTx,
           attemptReference: payResp.TransactionRef,
         });
-        return { status: 'PENDING', pay: payResp };
+        return { status: 'PENDING', data: payResp };
 
       case ProviderResult.FAILED:
         await this.paymentService.markAttemptFailed(attempt.id, {

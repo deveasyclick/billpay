@@ -7,79 +7,182 @@ datasource db {
   url      = env("DB_URL")
 }
 
-enum PaymentStatus {
-  PENDING
-  PROCESSING
-  PAID
-  FAILED
+enum Providers {
+  INTERSWITCH
+  VTPASS
+}
+
+//
+// BILLING PROVIDERS
+//
+model BillingProvider {
+  id              String           @id @default(cuid())
+  name            Providers        @unique
+  baseUrl         String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  items           BillingItem[]
+  paymentAttempts PaymentAttempt[]
+}
+
+enum BillCategory {
+  DATA
+  TV
+  ELECTRICITY
+  GAMING
+  AIRTIME
+}
+
+/**
+ * Main categories — airtime, data, tv, electricity, etc.
+ * Can be preseeded from BILL_CATEGORIES constant.
+ */
+model BillingCategory {
+  id        String        @id @default(cuid())
+  name      BillCategory  @unique
+  dynamic   Boolean       @default(false)
+  items     BillingItem[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+/**
+ * Logical service brand — e.g. MTN, DSTV, Ikeja Electric.
+ * This groups multiple provider entries under one brand.
+ */
+model Biller {
+  id        String        @id @default(cuid())
+  name      String
+  billerId  String        @unique // ID from biller eg 1029
+  items     BillingItem[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+/**
+ * The actual bill items/plans.
+ * One logical bill (e.g. "MTN 1GB Data") may exist across multiple providers.
+ */
+model BillingItem {
+  id           String   @id @default(cuid()) // internal unique ID
+  internalCode String // e.g. "mtn-data-1gb" (used for mapping across providers)
+  categoryId   String
+  billerId     String
+  providerId   String
+  paymentCode  String? // e.g. "mtn-1gb" or paymentCode in Interswitch
+  name         String
+  amount       Decimal?
+  amountType   Int?
+  active       Boolean  @default(true)
+  image        String?
+
+  category BillingCategory @relation(fields: [categoryId], references: [id])
+  biller   Biller          @relation(fields: [billerId], references: [id])
+  provider BillingProvider @relation(fields: [providerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Reverse relations
+  initialPayments  Payment[] @relation("InitialBillingItem")
+  resolvedPayments Payment[] @relation("ResolvedBillingItem")
+
+  @@unique([internalCode, providerId]) // one internal code per provider
+  @@index([categoryId])
+  @@index([billerId])
+  @@index([providerId])
 }
 
 // Billing provider
 model Provider {
   id        String   @id @default(uuid())
-  name      String   @unique               // e.g. "interswitch", "providerX"
-  active    Boolean @default(true)
+  name      String   @unique // e.g. "interswitch", "providerX"
+  active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  attempts  PaymentAttempt[]   
+  attempts PaymentAttempt[]
 }
 
-model PaymentRecord {
-  id                   String        @id @default(uuid())
-  requestReference     String        @unique  // unique identifier for this payment
-  status               PaymentStatus @default(PENDING)
-  amount               Int           // stored in kobo (minor unit)
-  currency             String        @default("NGN")
-  customerId           String
-  paymentCode          String
-  metadata             Json?         // any extra business metadata
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
+enum PaymentStatus {
+  PENDING
+  VERIFIED
+  PROCESSING
+  SUCCESS
+  FAILED
+  PARTIAL_FAILURE
+  RETRYING
+  ESCALATED
+  RECONCILED
+}
 
-  attempts             PaymentAttempt[]  
+model Payment {
+  id        String @id @default(cuid())
+  reference String @unique
 
-  @@index([status, createdAt])
-  @@map("payment_records")
+  // Customer identifiers (no login needed)
+  phoneNumber           String?
+  email                 String?
+  customerId            String // e.g. meter number, phone number, etc.
+  initialBillingItemId  String
+  resolvedBillingItemId String?
+  category              BillCategory
+
+  initialBillingItem  BillingItem  @relation("InitialBillingItem", fields: [initialBillingItemId], references: [id])
+  resolvedBillingItem BillingItem? @relation("ResolvedBillingItem", fields: [resolvedBillingItemId], references: [id])
+
+  internalCode String
+
+  transactionHash String?
+
+  amount   Decimal @db.Decimal(20, 8)
+  currency String  @default("NGN")
+
+  status        PaymentStatus @default(PENDING)
+  retries       Int           @default(0)
+  completedAt   DateTime?
+  nextRetryAt   DateTime?
+  lastError     String?
+  duplicateOfId String?
+  duplicateOf   Payment?      @relation("DuplicateRelation", fields: [duplicateOfId], references: [id])
+  duplicates    Payment[]     @relation("DuplicateRelation")
+
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  paymentAttempts PaymentAttempt[]
+
+  @@unique([transactionHash])
+  @@index([status])
+  @@index([reference])
+  @@index([completedAt])
+  @@index([internalCode])
 }
 
 model PaymentAttempt {
-  id                     String    @id @default(uuid())
-  paymentRecordId        String
-  providerId             String?   // nullable in case attempt created before provider chosen
-  attemptReference       String?   // provider-side request/transaction reference
-  providerStatus         String?   // raw provider status code (e.g., "90000" or "PENDING")
-  requestBody            Json?     // payload sent to provider
-  providerResponse       Json?     // provider raw response JSON
-  confirmedTransaction   Json?     // provider requery / confirmation JSON
-  isPrimary              Boolean   @default(false)  // primary attempt or fallback
-  retries                Int       @default(0)
-  lastError              String?
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  id                   String   @id @default(uuid())
+  paymentRecordId      String
+  providerId           String? // nullable in case attempt created before provider chosen
+  attemptReference     String? // provider-side request/transaction reference
+  providerStatus       String? // raw provider status code (e.g., "90000" or "PENDING")
+  requestBody          Json? // payload sent to provider
+  providerResponse     Json? // provider raw response JSON
+  confirmedTransaction Json? // provider requery / confirmation JSON
+  isPrimary            Boolean  @default(false) // primary attempt or fallback
+  retries              Int      @default(0)
+  lastError            String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   // Relations
-  paymentRecord PaymentRecord @relation(fields: [paymentRecordId], references: [id])
-  provider      Provider?     @relation(fields: [providerId], references: [id])
+  paymentRecord     Payment          @relation(fields: [paymentRecordId], references: [id])
+  provider          Provider?        @relation(fields: [providerId], references: [id])
+  BillingProvider   BillingProvider? @relation(fields: [billingProviderId], references: [id])
+  billingProviderId String?
 
-  @@index([paymentRecordId, providerId])
   @@unique([paymentRecordId, providerId, attemptReference], name: "unique_attempt_per_provider_if_ref") // attemptReference may be null; uniqueness ignored if null
+  @@index([paymentRecordId, providerId])
   @@map("payment_attempts")
-}
-
-model BillerPlan {
-  id            String   @id @default(uuid())       // e.g. "mtn-1gb-daily"
-  service       String                               // "DATA", "AIRTIME", "TV", "ELECTRICITY"
-  providerName  String                               // canonical provider display name (e.g. "MTN")
-  displayName   String
-  amount        Int                                  // stored in kobo (minor unit)
-  isAmountFixed Boolean  @default(true)
-  providerMeta  Json                                 // array of { providerName, paymentCode, serviceId, priority }
-  environment   String    @default("production")     // "test" | "production"
-  active        Boolean  @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  @@index([service, providerName, environment])
-  @@map("biller_plans")
 }

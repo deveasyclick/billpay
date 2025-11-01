@@ -95,12 +95,8 @@ With BillPay, users can conveniently purchase **airtime, data bundles, cable TV 
 
 | Method | Endpoint                  | Description                          |
 | ------ | ------------------------- | ------------------------------------ |
-| POST   | `/api/v1/airtime`         | Purchase airtime (via Interswitch)   |
-| POST   | `/api/v1/data`            | Buy a data bundle                    |
-| POST   | `/api/v1/cabletv`         | Renew cable TV subscription          |
-| POST   | `/api/v1/electricity`     | Pay electricity bill & get token     |
-| GET    | `/api/v1/transactions`    | Get user transaction history         |
-| POST   | `/api/v1/payments/init`   | Initialize a payment via Interswitch |
+| GET    | `/api/v1/items`           | Get Interswitch payment Items        |
+| POST   | `/api/v1/payments/pay`    | Pay bill                             |
 | POST   | `/api/v1/payments/verify` | Verify payment status                |
 
 ---
@@ -120,14 +116,11 @@ With BillPay, users can conveniently purchase **airtime, data bundles, cable TV 
 
 ```bash
 src/
+ ├── integration/interswitch
  ├── modules/
  │   ├── auth/           # Authentication & user management
  │   ├── payments/       # Interswitch payment integration
- │   ├── airtime/        # Airtime top-up
- │   ├── data/           # Data bundles
- │   ├── cabletv/        # Cable TV subscriptions
- │   ├── electricity/    # Electricity payments
- │   └── transactions/   # Transaction history & logs
+ │   ├── bills/        # Airtime top-up
  ├── common/             # Shared services, interceptors, filters, utils
  ├── prisma/             # Prisma schema and migrations
  ├── jobs/               # Background jobs (queues using Redis)

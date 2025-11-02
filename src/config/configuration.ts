@@ -13,6 +13,10 @@ export interface Config {
   interswitchPaymentReferencePrefix: string;
   interswitchPaymentBaseUrl: string;
   interswitchMerchantCode: string;
+  vtpassApikey: string;
+  vtpassSecretKey: string;
+  vtpassApiBaseUrl: string;
+  vtpassPublicKey: string;
 }
 
 const parseNumber = (value: string | undefined, fallback: number): number => {
@@ -35,6 +39,10 @@ export default function loadConfig(): Config {
     interswitchPaymentReferencePrefix:
       process.env.INTERSWITCH_PAYMENT_REFERENCE_PREFIX || '',
     interswitchMerchantCode: process.env.INTERSWITCH_MERCHANT_CODE || '',
+    vtpassApikey: process.env.VTPASS_APIKEY || '',
+    vtpassSecretKey: process.env.VTPASS_SECRET_KEY || '',
+    vtpassApiBaseUrl: process.env.VTPASS_API_BASE_URL || '',
+    vtpassPublicKey: process.env.VTPASS_PUBLIC_KEY || '',
   };
 
   if (config.interswitchClientId && config.interswitchSecretKey) {

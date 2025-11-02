@@ -1,59 +1,52 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, Min, IsNumber } from 'class-validator';
+import { Providers } from '@prisma/client';
+import {
+  IsNotEmpty,
+  IsString,
+  Min,
+  IsNumber,
+  IsOptional,
+} from 'class-validator';
 import { ApiResponseDto } from 'src/common/dto/response.dto';
 
 export class PayBillDTO {
-  @ApiProperty({
-    description:
-      'Unique customer identifier (e.g. phone number, meter number, decoder number, etc.)',
-    example: '08012345678',
-  })
-  @IsNotEmpty()
-  @IsString()
-  customerId: string;
-
-  @ApiProperty({
-    description: 'Amount in Naira',
-    example: 500,
-  })
-  @IsNotEmpty()
-  @IsNumber()
-  @Min(50)
-  amount: number;
-
   @ApiProperty({
     description: 'Unique request reference for this transaction',
     example: '81nzn1277',
   })
   @IsNotEmpty()
   @IsString()
-  requestReference: string;
+  paymentReference: string;
 
   @ApiProperty({
-    description:
-      'Payment code for the specific biller product (e.g. MTN Airtime 100, DSTV Compact, Ikeja Prepaid)',
-    example: '4444',
+    description: 'internal code of the bill',
+    example: 'jhash127818',
   })
   @IsNotEmpty()
   @IsString()
-  paymentCode: string;
+  billingItemId: string;
+
+  @ApiProperty({
+    description: 'provider to be used for this transaction',
+    example: 'VTPASS or INTERSWITCH',
+  })
+  @IsNotEmpty()
+  @IsOptional()
+  provider?: Providers;
 }
 
 class PayBillResponse {
   @ApiProperty()
-  customerId: string;
-
-  @ApiProperty()
   amount: number;
 
   @ApiProperty()
-  requestReference: string;
+  paymentRef: string;
 
   @ApiProperty()
-  paymentCode: string;
+  metadata: Record<string, any>;
 
   @ApiProperty()
-  transactionRef: string;
+  status: string;
 }
 
 export class PayBillResponseDTO extends ApiResponseDto<PayBillResponse> {}

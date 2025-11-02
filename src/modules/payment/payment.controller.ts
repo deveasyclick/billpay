@@ -32,13 +32,20 @@ export class PaymentController {
   public async createPayment(
     @Body() body: CreatePaymentDto,
   ): Promise<CreatePaymentResponseDto> {
-    const { record } = await this.paymentService.createPayment(body);
+    const { reference, id, amount, internalCode } =
+      await this.paymentService.createPayment(body);
 
     // Step 3: Return info to the frontend
     return {
       statusCode: 200,
       message: 'Payment initialized. Redirect customer to checkout.',
-      data: record,
+      data: {
+        paymentReference: reference,
+        id,
+        amount: Number(amount),
+        customerId: body.customerId,
+        internalCode: internalCode,
+      },
     };
   }
 }

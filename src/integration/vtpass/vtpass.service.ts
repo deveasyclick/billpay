@@ -2,6 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BillCategory, Providers } from '@prisma/client';
+import { BillerNames } from 'src/common/constants/biller';
 import type { BillerItem } from 'src/common/types/billerItem';
 import type {
   GetVTPassCategoryResponse,
@@ -14,13 +15,12 @@ import type {
   VTPassVerifyCustomerPayload,
   VTPassVerifyMeterNoPayload,
 } from 'src/common/types/vtpass';
-import type { Config } from 'src/config/configuration';
-import { STATIC_BILL_ITEMS } from './vtpass.constants';
 import {
   getStaticInternalCode,
   isStaticCategory,
 } from 'src/common/utils/getStaticInternalCode';
-import { BillerNames } from 'src/common/constants/biller';
+import type { Config } from 'src/config/configuration';
+import { STATIC_BILL_ITEMS } from './vtpass.constants';
 
 @Injectable()
 export class VTPassService {

@@ -1,4 +1,4 @@
-export type BillerItemV2 = {
+export type BillerItem = {
   internalCode: string;
   category: string; // 'data' | 'tv' | 'electricity' | 'airtime'
   billerName: string; // e.g mtn | dstv

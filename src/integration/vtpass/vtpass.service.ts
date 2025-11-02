@@ -2,7 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BillCategory, Providers } from '@prisma/client';
-import type { BillerItemV2 } from 'src/common/types/billerItem';
+import type { BillerItem } from 'src/common/types/billerItem';
 import type {
   GetVTPassCategoryResponse,
   GetVTPassServiceResponse,
@@ -123,7 +123,7 @@ export class VTPassService {
   }
 
   private getStaticPlans() {
-    const items: BillerItemV2[] = [];
+    const items: BillerItem[] = [];
 
     // Select only non-dynamic categories (e.g., airtime, electricity, etc.)
     const staticServices = STATIC_BILL_ITEMS.filter(

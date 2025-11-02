@@ -1,10 +1,11 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { PaymentService } from './payment.service';
 import { PaymentRepository } from './payment.repository';
 import { PrismaService } from 'src/prisma.service';
+import { BillsModule } from '../bills/bills.module';
 
 @Module({
-  imports: [],
+  imports: [forwardRef(() => BillsModule)],
   providers: [PaymentService, PaymentRepository, PrismaService],
   exports: [PaymentService],
 })

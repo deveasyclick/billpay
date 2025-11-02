@@ -27,28 +27,11 @@ export class BillsController {
       return {
         statusCode: 200,
         message: 'Success',
-        data: {
-          customerId: dto.customerId,
-          amount: dto.amount,
-          requestReference: dto.requestReference,
-          paymentCode: dto.paymentCode,
-          transactionRef: res.data.TransactionRef ?? '',
-        },
+        data: res,
       };
     } catch (err) {
       this.logger.error('error ', err?.response?.data ?? err);
       throw new InternalServerErrorException('Payment failed');
     }
-  }
-
-  @Get('items')
-  @ApiOperation({ summary: 'Get all bill items' })
-  @ApiOkResponse({ type: GetBillerItemsResponseDto })
-  async getItems(): Promise<GetBillerItemsResponseDto> {
-    return {
-      statusCode: 200,
-      message: 'Success',
-      data: await this.billsService.fetchAllPlans(),
-    };
   }
 }

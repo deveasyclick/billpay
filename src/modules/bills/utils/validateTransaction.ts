@@ -1,4 +1,4 @@
-import type { TransactionResponse } from 'src/integration/interswitch/types';
+import type { ConfirmCardPaymentResponse } from 'src/integration/interswitch/types';
 
 /**
  *This function validates the transaction response and amount
@@ -9,7 +9,7 @@ import type { TransactionResponse } from 'src/integration/interswitch/types';
  * @returns
  */
 export const validateTransaction = (
-  transaction: Pick<TransactionResponse, 'ResponseCode' | 'Amount'>,
+  transaction: Pick<ConfirmCardPaymentResponse, 'ResponseCode' | 'Amount'>,
   amount: number,
 ): boolean => {
   const isSuccessfulTransaction =

@@ -38,15 +38,13 @@ export interface ValidateCustomersResponse {
 }
 
 export interface PayResponse {
-  TransactionRef: string;
-  ApprovedAmount: string;
-  AdditionalInfo: Record<string, unknown>;
-  ResponseCode: string;
-  ResponseDescription: string;
-  ResponseCodeGrouping: string;
+  paymentRef: string;
+  amount: number;
+  metadata: Record<string, any>;
+  status: string;
 }
 
-export type TransactionResponse = {
+export type ConfirmCardPaymentResponse = {
   Amount: number;
   CardNumber: string;
   MerchantReference: string;
@@ -57,4 +55,48 @@ export type TransactionResponse = {
   ResponseCode: string;
   ResponseDescription: string;
   AccountNumber: string;
+};
+
+export type TransactionResponse = {
+  TransactionRef: string;
+  ApprovedAmount: string;
+  AdditionalInfo: Record<string, string>;
+  ResponseCode: string;
+  ResponseDescription: string;
+  ResponseCodeGrouping: 'SUCCESSFUL' | 'FAILED' | 'PENDING';
+};
+
+type BillPayment = {
+  Biller: string;
+  CustomerId1: string;
+  PaymentTypeName: string;
+  paymentTypeCode: string;
+  BillerId: string;
+  NarrationStreet: string;
+  NarrationCity: string;
+  ReceivingInstitutionId: string;
+  ServiceProvider: string;
+  ServiceName: string;
+  Payee: string;
+};
+
+export type ConfirmTransactionResponse = {
+  TransactionId: number;
+  ServiceProviderId: string;
+  ServiceCode: string;
+  ServiceName: string;
+  TransactionRef: string;
+  RequestReference: string;
+  Status: string;
+  TransactionSet: string;
+  TransactionResponseCode: string;
+  PaymentDate: string;
+  Amount: string;
+  Surcharge: string;
+  CurrencyCode: string;
+  Customer: string;
+  CustomerMobile: string;
+  BillPayment: BillPayment;
+  ResponseCode: string;
+  ResponseCodeGrouping: string;
 };

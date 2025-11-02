@@ -94,17 +94,6 @@ model BillingItem {
   @@index([providerId])
 }
 
-// Billing provider
-model Provider {
-  id        String   @id @default(uuid())
-  name      String   @unique // e.g. "interswitch", "providerX"
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  attempts PaymentAttempt[]
-}
-
 enum PaymentStatus {
   PENDING
   VERIFIED
@@ -117,6 +106,9 @@ enum PaymentStatus {
   RECONCILED
 }
 
+//
+// TRANSACTIONS
+//
 model Payment {
   id        String @id @default(cuid())
   reference String @unique
@@ -129,12 +121,12 @@ model Payment {
   resolvedBillingItemId String?
   category              BillCategory
 
+  plan String? // hold plan/package for electricity
+
   initialBillingItem  BillingItem  @relation("InitialBillingItem", fields: [initialBillingItemId], references: [id])
   resolvedBillingItem BillingItem? @relation("ResolvedBillingItem", fields: [resolvedBillingItemId], references: [id])
 
   internalCode String
-
-  transactionHash String?
 
   amount   Decimal @db.Decimal(20, 8)
   currency String  @default("NGN")
@@ -154,35 +146,45 @@ model Payment {
 
   paymentAttempts PaymentAttempt[]
 
-  @@unique([transactionHash])
   @@index([status])
   @@index([reference])
   @@index([completedAt])
   @@index([internalCode])
 }
 
+enum AttemptStatus {
+  PENDING
+  PENDING_CONFIRMATION
+  SUCCESS
+  FAILED
+  TIMEOUT
+  CANCELLED
+  RECONCILED
+}
+
+//
+// INDIVIDUAL PAYMENT ATTEMPTS (including retries/fallbacks)
+//
 model PaymentAttempt {
-  id                   String   @id @default(uuid())
-  paymentRecordId      String
-  providerId           String? // nullable in case attempt created before provider chosen
-  attemptReference     String? // provider-side request/transaction reference
-  providerStatus       String? // raw provider status code (e.g., "90000" or "PENDING")
-  requestBody          Json? // payload sent to provider
-  providerResponse     Json? // provider raw response JSON
-  confirmedTransaction Json? // provider requery / confirmation JSON
-  isPrimary            Boolean  @default(false) // primary attempt or fallback
-  retries              Int      @default(0)
-  lastError            String?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id        String  @id @default(cuid())
+  paymentId String
+  payment   Payment @relation(fields: [paymentId], references: [id])
 
-  // Relations
-  paymentRecord     Payment          @relation(fields: [paymentRecordId], references: [id])
-  provider          Provider?        @relation(fields: [providerId], references: [id])
-  BillingProvider   BillingProvider? @relation(fields: [billingProviderId], references: [id])
-  billingProviderId String?
+  providerId String
+  provider   BillingProvider @relation(fields: [providerId], references: [id])
 
-  @@unique([paymentRecordId, providerId, attemptReference], name: "unique_attempt_per_provider_if_ref") // attemptReference may be null; uniqueness ignored if null
-  @@index([paymentRecordId, providerId])
-  @@map("payment_attempts")
+  attemptNumber     Int
+  externalReference String? // e.g. Coinley or Interswitch reference
+  status            AttemptStatus @default(PENDING)
+  errorMessage      String?
+  responsePayload   Json?
+  requestPayload    Json?
+  isFallback        Boolean       @default(false)
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([paymentId, providerId, attemptNumber])
 }

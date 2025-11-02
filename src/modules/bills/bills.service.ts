@@ -1,30 +1,44 @@
+import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
   BadRequestException,
   ConflictException,
+  forwardRef,
   Inject,
   Injectable,
+  InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
+import {
+  AttemptStatus,
+  BillCategory,
+  Payment,
+  PaymentStatus,
+  Prisma,
+  Providers,
+} from '@prisma/client';
+import { VTPassPayPayload } from 'src/common/types/vtpass';
 import { InterSwitchService } from 'src/integration/interswitch/interswitch.service';
 import type {
   PayResponse,
-  TransactionResponse,
   ValidateCustomersResponse,
 } from 'src/integration/interswitch/types';
-import { ProviderResult } from './bills.types';
-import type { PayBillDTO } from './dtos/payment';
-import { validateTransaction } from './utils/validateTransaction';
-import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
+import { VTPassService } from 'src/integration/vtpass/vtpass.service';
 import { PaymentService } from '../payment/payment.service';
+import { QueueService } from '../queue/queue.service';
+import { BillRepository } from './bill.repository';
+import type { PayBillDTO } from './dtos/payment';
 
-const BILL_ITEMS_CACHE_KEY = 'billItems';
 @Injectable()
 export class BillsService {
   private readonly logger = new Logger(BillsService.name);
   constructor(
     private readonly interswitchService: InterSwitchService,
+    @Inject(forwardRef(() => PaymentService))
     private readonly paymentService: PaymentService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly billRepo: BillRepository,
+    private readonly vtpassService: VTPassService,
+    private readonly queueService: QueueService,
   ) {}
 
   /**
@@ -80,159 +94,398 @@ export class BillsService {
     return rules[type]?.() ?? false;
   }
 
-  public async processBillPayment({
-    amount: amountInNaira,
-    customerId,
-    paymentCode,
-    requestReference,
-  }: PayBillDTO): Promise<{ status: string; data: PayResponse }> {
-    const amountInKobo = Math.round(amountInNaira * 100);
+  private buildVtpassPayload(
+    category: BillCategory,
+    payment: Pick<Payment, 'reference' | 'customerId' | 'amount' | 'plan'>,
+    item: Prisma.BillingItemGetPayload<{
+      include: { provider: true; category; biller };
+    }>,
+  ): VTPassPayPayload {
+    const defaultPhoneNumber = '+2348111111111';
+    switch (category) {
+      case 'AIRTIME':
+        return {
+          request_id: payment.reference,
+          serviceID: item.biller.billerId,
+          phone: payment.customerId,
+          amount: Number(payment.amount),
+        };
 
-    // Step 1: find or create payment record
-    let paymentRecord = await this.paymentService.findPaymentRecord({
-      requestReference,
+      case 'DATA':
+        return {
+          request_id: payment.reference,
+          serviceID: item.biller.billerId,
+          phone: payment.customerId,
+          variation_code: item.paymentCode!,
+          billersCode: defaultPhoneNumber,
+        };
+
+      case 'TV':
+        return {
+          request_id: payment.reference,
+          serviceID: item.biller.billerId,
+          phone: defaultPhoneNumber,
+          variation_code: item.paymentCode!,
+          billersCode: payment.customerId,
+          subscription_type: 'change',
+        };
+
+      case 'ELECTRICITY':
+        return {
+          request_id: payment.reference,
+          serviceID: item.biller.billerId,
+          phone: defaultPhoneNumber,
+          variation_code: payment.plan!,
+          billersCode: payment.customerId,
+          amount: Number(payment.amount),
+        };
+
+      default:
+        throw new BadRequestException(`Unsupported bill category: ${category}`);
+    }
+  }
+
+  private async payWithVtpass(
+    item: Prisma.BillingItemGetPayload<{
+      include: { provider: true; category; biller };
+    }>,
+    payment: Pick<
+      Payment,
+      'reference' | 'amount' | 'id' | 'customerId' | 'plan'
+    >,
+  ): Promise<PayResponse> {
+    const defaultPhoneNumber = '+2348111111111';
+    const { category, provider, biller, ...rest } = item;
+    const attempt = await this.paymentService.createPaymentAttempt({
+      providerId: provider.id,
+      requestPayload: JSON.stringify({
+        amount: payment.amount,
+        billersCode: rest.paymentCode,
+        billingItemId: rest.id,
+      }),
+      paymentId: payment.id,
     });
-    paymentRecord ??= await this.paymentService.createPaymentRecord({
-      requestReference,
-      amount: amountInKobo,
-      customerId,
-      paymentCode,
+
+    try {
+      const vtpassPayload: VTPassPayPayload = this.buildVtpassPayload(
+        category.name,
+        payment,
+        item,
+      );
+
+      let tx = await this.vtpassService.pay(vtpassPayload);
+      await this.paymentService.updatePaymentAttempt(attempt.id, {
+        status: AttemptStatus.PENDING_CONFIRMATION,
+        responsePayload: JSON.stringify(tx),
+      });
+
+      // 🕒 Retry loop for getTransaction
+      const maxRetries = 3; // total retries
+      const delayMs = 3000; // 3 seconds per retry
+
+      for (let attemptCount = 0; attemptCount < maxRetries; attemptCount++) {
+        try {
+          if (tx.status === 'delivered') {
+            await this.paymentService.updatePaymentAttempt(attempt.id, {
+              status: AttemptStatus.SUCCESS,
+              responsePayload: JSON.stringify(tx),
+            });
+            return {
+              paymentRef: payment.reference,
+              amount: Number(tx.amount),
+              status: PaymentStatus.SUCCESS,
+              metadata: { rechargePin: (tx as any).extras },
+            };
+          }
+
+          if (tx.status === 'failed') {
+            await this.paymentService.updatePaymentAttempt(attempt.id, {
+              status: PaymentStatus.FAILED,
+              responsePayload: JSON.stringify(tx),
+            });
+            throw new Error('vtpass payment attempt failed');
+          }
+
+          // Only retry if still pending
+          if (tx.status === 'pending') {
+            if (attemptCount < maxRetries - 1) {
+              await new Promise((resolve) => setTimeout(resolve, delayMs));
+              tx = await this.vtpassService.getTransaction(payment.reference);
+              continue;
+            }
+          }
+
+          // Exit loop if status is not pending
+          break;
+        } catch (err) {
+          this.logger.error('Error while trying to confirm payment', err);
+        }
+      }
+
+      // Keep the status as pending_confirmation if transaction status is unknown so we can retry later
+      await this.queueService.addReconciliationJob({
+        paymentRef: payment.reference,
+        attemptId: attempt.id,
+        itemId: item.id,
+      });
+      return {
+        paymentRef: payment.reference,
+        amount: Number(payment.amount),
+        status: PaymentStatus.PENDING,
+        metadata: {
+          status: tx.status,
+          message: 'Transaction pending confirmation',
+        },
+      };
+    } catch (e) {
+      await this.paymentService.updatePaymentAttempt(attempt.id, {
+        status: PaymentStatus.FAILED,
+        errorMessage: JSON.stringify(e),
+      });
+      throw e;
+    }
+  }
+
+  public async processBillPayment({
+    billingItemId,
+    paymentReference,
+    provider,
+  }: PayBillDTO): Promise<PayResponse> {
+    const billItem = await this.billRepo.findItemById(billingItemId);
+    if (!billItem) {
+      throw new NotFoundException('Billing item not found!');
+    }
+
+    const providers = await this.billRepo.findActiveProviders();
+    const providerToUse = provider ?? billItem.provider.name;
+    const isValidProvider = providers.find((p) => p.name === providerToUse);
+    if (!isValidProvider) {
+      throw new BadRequestException(
+        `provider ${provider} or ${billItem.provider.name} is not a valid provider for this transaction`,
+      );
+    }
+
+    // Step 1: find payment object
+    const payment = await this.paymentService.findPayment({
+      reference: paymentReference,
     });
+
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
+    }
 
     // Step 2: enforce state machine rules
-    switch (paymentRecord.status) {
-      case 'PAID':
+    switch (payment.status) {
+      case PaymentStatus.SUCCESS:
         throw new ConflictException('Payment already processed, cannot retry.');
-      case 'FAILED':
+      case PaymentStatus.FAILED:
         throw new ConflictException('Payment already failed, cannot retry.');
-      case 'PROCESSING':
-      case 'PENDING':
+      case PaymentStatus.PROCESSING:
+      case PaymentStatus.PENDING:
         // continue with processing
         break;
     }
 
-    // Step 3: validate customer *before* attempt creation
-    await this.validateCustomerOrThrow(customerId, paymentCode, amountInKobo);
+    const fallbackProvider = providers.find(
+      (p) => p.name !== providerToUse,
+    )?.name;
+    const providersToTry = [providerToUse].concat(
+      fallbackProvider ? fallbackProvider : [],
+    );
+    return this.tryProviders(providersToTry, payment, billItem.internalCode);
+  }
 
-    // Step 4: create provider attempt
-    let attempt = await this.paymentService.createPaymentAttempt({
-      paymentRecordId: paymentRecord.id,
-      providerName: 'interswitch',
-      isPrimary: true,
-      requestBody: {
-        customerId,
-        paymentCode,
-        amount: amountInKobo,
-        requestReference,
-      },
+  private async tryProviders<T>(
+    providers: Providers[],
+    payment: Payment,
+    internalCode,
+  ) {
+    const items = await this.billRepo.findItemsByInternalCode(internalCode);
+    let lastError: any;
+
+    for (const provider of providers) {
+      const item = items.find((item) => item.name === provider);
+      if (!item) {
+        this.logger.warn(
+          `Provider ${provider} item not found, skipping bill payment...`,
+        );
+        lastError = new Error(`Provider ${provider} item not found`);
+        continue;
+      }
+
+      try {
+        this.logger.log(`Attempting payment via ${provider}...`);
+        const result = await this.handleBillPayment(item, payment);
+        this.logger.log(`✅ Payment successful via ${provider}`);
+        return result;
+      } catch (err) {
+        lastError = err.response?.data ?? err;
+        this.logger.warn(`❌ Provider ${provider} failed`, lastError);
+      }
+    }
+
+    // If we got here, all providers failed
+    throw new InternalServerErrorException({
+      message: lastError,
+      details: lastError,
+    });
+  }
+
+  private async handleBillPayment(
+    item: Prisma.BillingItemGetPayload<{
+      include: { provider: true; category: true; biller: true };
+    }>,
+    payment: Payment,
+  ): Promise<PayResponse> {
+    this.logger.log(`Attempting payment via ${item.provider.name}...`, {
+      paymentCode: item.paymentCode!,
+      amount: payment.amount,
+      reference: payment.reference,
+      biller: item.biller.name,
+      category: payment.category,
+      plan: payment.plan,
     });
 
-    // Step 5: confirm transaction with provider
-    let confirmedTx: TransactionResponse | null = null;
+    if (item.provider.name === Providers.INTERSWITCH) {
+      return this.payWithInterswitch(item, payment);
+    }
+
+    if (item.provider.name === Providers.VTPASS) {
+      return this.payWithVtpass(item, payment);
+    }
+    throw new BadRequestException(`Unknown provider: ${item.provider.name}`);
+  }
+
+  private async payWithInterswitch(
+    item: Prisma.BillingItemGetPayload<{
+      include: { provider: true; category; biller };
+    }>,
+    payment: Pick<
+      Payment,
+      'reference' | 'amount' | 'id' | 'customerId' | 'plan'
+    >,
+  ): Promise<PayResponse> {
+    const { category, provider, biller, ...rest } = item;
+    // Step 1: Create payment attempt
+    const attempt = await this.paymentService.createPaymentAttempt({
+      providerId: provider.id,
+      requestPayload: JSON.stringify({
+        amount: payment.amount,
+        billersCode: rest.paymentCode,
+        billingItemId: rest.id,
+      }),
+      paymentId: payment.id,
+    });
+
     try {
-      confirmedTx = await this.interswitchService.confirmTransaction({
-        amount: amountInKobo,
-        transactionReference: requestReference,
+      // Step 3: call provider pay()
+      let payResp = await this.interswitchService.pay({
+        customerId: payment.customerId,
+        paymentCode: item.paymentCode!,
+        amount: Number(payment.amount),
+        requestReference: payment.reference,
       });
-    } catch (err: any) {
-      if (this.isTransactionNotFound(err)) {
-        await this.paymentService.markAttemptPending(attempt.id, {
-          lastError: 'Transaction not found yet',
-        });
-        throw new BadRequestException('Transaction not found yet');
+      await this.paymentService.updatePaymentAttempt(attempt.id, {
+        status: AttemptStatus.PENDING_CONFIRMATION,
+        responsePayload: JSON.stringify(payResp),
+      });
+
+      // 🕒 Retry loop for getTransaction
+      const maxRetries = 5; // total retries
+      const delayMs = 3000; // 3 seconds per retry
+
+      for (let attemptCount = 0; attemptCount < maxRetries; attemptCount++) {
+        try {
+          if (payResp.ResponseCodeGrouping === 'SUCCESSFUL') {
+            await this.paymentService.updatePaymentAttempt(attempt.id, {
+              status: AttemptStatus.SUCCESS,
+              responsePayload: JSON.stringify(payResp),
+            });
+
+            return {
+              paymentRef: payment.reference,
+              amount: Number(payResp.ApprovedAmount),
+              status: PaymentStatus.SUCCESS,
+              metadata: payResp.AdditionalInfo,
+            };
+          }
+
+          if (payResp.ResponseCodeGrouping === PaymentStatus.FAILED) {
+            await this.paymentService.updatePaymentAttempt(attempt.id, {
+              status: PaymentStatus.FAILED,
+              responsePayload: JSON.stringify(payResp),
+            });
+            throw new Error('interswitch payment attempt failed');
+          }
+
+          // Only retry if still pending
+          if (payResp.ResponseCodeGrouping === PaymentStatus.PENDING) {
+            if (attemptCount < maxRetries - 1) {
+              await new Promise((resolve) => setTimeout(resolve, delayMs));
+              const confirmedTx =
+                await this.interswitchService.confirmTransaction(
+                  payment.reference,
+                );
+              payResp = {
+                TransactionRef: confirmedTx.TransactionRef,
+                ApprovedAmount: confirmedTx.Amount,
+                AdditionalInfo: confirmedTx.BillPayment,
+                ResponseCode: confirmedTx.ResponseCode,
+                ResponseCodeGrouping: confirmedTx.ResponseCodeGrouping as
+                  | 'SUCCESSFUL'
+                  | 'FAILED'
+                  | 'PENDING',
+                ResponseDescription: '',
+              };
+              continue;
+            }
+          }
+
+          // Exit loop if status is not pending
+          break;
+        } catch (err) {
+          // confirm transaction throws error if transaction not found
+          if (
+            err.response?.data?.ResponseCodeGrouping === PaymentStatus.FAILED
+          ) {
+            await this.paymentService.updatePaymentAttempt(attempt.id, {
+              status: PaymentStatus.FAILED,
+              responsePayload: JSON.stringify(payResp),
+            });
+            throw new Error('interswitch payment attempt failed');
+          }
+
+          this.logger.error(
+            'Interswitch payment confirmation failed',
+            err?.response?.data ?? err,
+          );
+        }
       }
+
+      // Keep the status as pending_confirmation if transaction status is unknown so we can retry later
+      await this.queueService.addReconciliationJob({
+        paymentRef: payment.reference,
+        attemptId: attempt.id,
+        itemId: item.id,
+      });
+      return {
+        paymentRef: payment.reference,
+        amount: Number(payment.amount),
+        status: PaymentStatus.PENDING,
+        metadata: {
+          status: payResp.ResponseCodeGrouping,
+          message: 'Transaction pending confirmation',
+        },
+      };
+    } catch (err) {
+      await this.paymentService.updatePaymentAttempt(attempt.id, {
+        status: PaymentStatus.FAILED,
+      });
       throw err;
     }
-    // Step 6: validate confirmed transaction
-    if (!validateTransaction(confirmedTx, amountInKobo)) {
-      throw new BadRequestException(confirmedTx.ResponseDescription);
-    }
-
-    // Step 7: call provider pay()
-    const payResp = await this.interswitchService.pay({
-      customerId,
-      paymentCode,
-      amount: amountInKobo,
-      requestReference,
-    });
-
-    // Step 8: normalize response
-    const providerResult = this.mapProviderResult(payResp);
-
-    switch (providerResult) {
-      case ProviderResult.SUCCESS:
-        await this.paymentService.markAttemptSuccess(attempt.id, {
-          providerStatus: payResp.ResponseCode,
-          providerResponse: JSON.stringify(payResp),
-          confirmedTransaction: confirmedTx,
-          attemptReference: payResp.TransactionRef,
-          requestBody: {
-            customerId,
-            paymentCode,
-            amount: amountInKobo,
-            requestReference,
-          },
-        });
-        return { status: 'SUCCESS', data: payResp };
-
-      case ProviderResult.PENDING:
-        await this.paymentService.markAttemptPending(attempt.id, {
-          providerResponse: payResp,
-          confirmedTransaction: confirmedTx,
-          attemptReference: payResp.TransactionRef,
-        });
-        return { status: 'PENDING', data: payResp };
-
-      case ProviderResult.FAILED:
-        await this.paymentService.markAttemptFailed(attempt.id, {
-          providerResponse: payResp,
-          confirmedTransaction: confirmedTx,
-          attemptReference: payResp.TransactionRef,
-          lastError: 'Bill payment failed',
-        });
-        throw new BadRequestException({
-          message: 'Bill payment failed. Contact support for reconciliation.',
-          details: payResp,
-        });
-    }
   }
 
-  private mapProviderResult(resp: any): ProviderResult {
-    if (
-      resp.ResponseCode === '90000' ||
-      resp.ResponseCodeGrouping === 'SUCCESSFUL'
-    ) {
-      return ProviderResult.SUCCESS;
-    }
-    if (
-      resp.ResponseCode === '90009' ||
-      resp.ResponseCodeGrouping === 'PENDING'
-    ) {
-      return ProviderResult.PENDING;
-    }
-    return ProviderResult.FAILED;
-  }
-
-  private isTransactionNotFound(err: any): boolean {
-    return (
-      err?.response?.status === 404 ||
-      err?.response?.data?.ResponseCode === '30010' ||
-      err?.response?.data?.ResponseCode === 'Z25' ||
-      /transaction not found/i.test(String(err?.ResponseDescription ?? ''))
-    );
-  }
-
-  public async fetchAllPlans() {
-    let cachedItems = await this.cacheManager.get<string>(BILL_ITEMS_CACHE_KEY);
-    if (cachedItems) {
-      this.logger.log('served from cache');
-      return JSON.parse(cachedItems);
-    }
-
-    const items =
-      await this.interswitchService.refreshAllPlansFromInterswitch();
-    const ttl = 60 * 60 * 24 * 1; // 1 days
-    this.cacheManager.set(BILL_ITEMS_CACHE_KEY, JSON.stringify(items), ttl);
-    return items;
+  public async findItemById(id: string) {
+    return this.billRepo.findItemById(id);
   }
 }

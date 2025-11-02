@@ -1,95 +1,151 @@
 import { Injectable } from '@nestjs/common';
-import {
-  Prisma,
-  type PaymentAttempt,
-  type PaymentRecord,
-} from '@prisma/client';
+import { Prisma, PaymentStatus, type Payment } from '@prisma/client';
 import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
 export class PaymentRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  public async createPaymentRecord(pr: Prisma.PaymentRecordCreateInput) {
-    return this.prisma.paymentRecord.create({
-      data: { ...pr, metadata: pr.metadata ?? {} },
-    });
-  }
-
-  public async createPaymentAttempt(
-    pa: Pick<
-      PaymentAttempt,
-      'paymentRecordId' | 'providerId' | 'isPrimary' | 'requestBody' | 'retries'
-    >,
-  ) {
-    return this.prisma.paymentAttempt.create({
+  //
+  // 🧾 PAYMENTS
+  //
+  public async createPayment(data: Prisma.PaymentUncheckedCreateInput) {
+    return this.prisma.payment.create({
       data: {
-        ...pa,
-        requestBody: pa.requestBody ?? {},
+        ...data,
+        amount: new Prisma.Decimal(data.amount as Prisma.Decimal.Value),
+        currency: data.currency ?? 'NGN',
       },
     });
   }
 
-  public async createProvider(p: Prisma.ProviderCreateInput) {
-    return this.prisma.provider.create({
-      data: p,
+  public async updatePayment(
+    id: string,
+    data: Pick<
+      Prisma.PaymentUncheckedCreateInput,
+      | 'status'
+      | 'completedAt'
+      | 'resolvedBillingItemId'
+      | 'lastError'
+      | 'duplicateOfId'
+    >,
+    tx?: Prisma.TransactionClient,
+  ) {
+    if (tx) {
+      return tx.payment.update({
+        where: { id },
+        data: {
+          ...data,
+        },
+      });
+    }
+    return this.prisma.payment.update({
+      where: { id },
+      data: {
+        ...data,
+      },
     });
   }
 
-  public async updatePaymentRecord(
-    id,
-    pr: Partial<Omit<PaymentRecord, 'metadata'>>,
+  public async updatePaymentStatus(
+    transactionId: string,
+    status: PaymentStatus,
+    error?: string,
+    tx?: Prisma.TransactionClient,
   ) {
-    return this.prisma.paymentRecord.update({
-      where: { id },
-      data: pr,
+    if (tx) {
+      return tx.payment.update({
+        where: { id: transactionId },
+        data: {
+          status,
+          lastError: error,
+          updatedAt: new Date(),
+        },
+      });
+    }
+    return this.prisma.payment.update({
+      where: { id: transactionId },
+      data: {
+        status,
+        lastError: error,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  public async findPaymentByReference(
+    paymentRef: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    if (tx) {
+      return tx.payment.findUnique({
+        where: { reference: paymentRef },
+      });
+    }
+    return this.prisma.payment.findUnique({
+      where: { reference: paymentRef },
+    });
+  }
+
+  public async transaction<T>(
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction(fn);
+  }
+
+  public async findPayment(
+    data: Pick<Partial<Payment>, 'customerId' | 'status' | 'internalCode'>,
+    tx?: Prisma.TransactionClient,
+  ) {
+    if (tx) {
+      return tx.payment.findFirst({
+        where: data,
+      });
+    }
+    return this.prisma.payment.findFirst({
+      where: data,
+    });
+  }
+
+  public async scheduleRetry(transactionId: string, retryDelayMinutes = 2) {
+    return this.prisma.payment.update({
+      where: { id: transactionId },
+      data: {
+        retries: { increment: 1 },
+        nextRetryAt: new Date(Date.now() + retryDelayMinutes * 60 * 1000),
+      },
+    });
+  }
+
+  //
+  // 💳 PAYMENT ATTEMPTS
+  //
+  public async createPaymentAttempt(
+    data: Prisma.PaymentAttemptUncheckedCreateInput,
+  ) {
+    return this.prisma.paymentAttempt.create({
+      data: {
+        paymentId: data.paymentId,
+        providerId: data.providerId,
+        attemptNumber: 1,
+        requestPayload: data.requestPayload,
+      },
     });
   }
 
   public async updatePaymentAttempt(
     id: string,
-    pa: Partial<
-      Pick<
-        PaymentAttempt,
-        | 'attemptReference'
-        | 'providerResponse'
-        | 'confirmedTransaction'
-        | 'providerStatus'
-        | 'lastError'
-      >
+    data: Pick<
+      Prisma.PaymentAttemptUncheckedCreateInput,
+      'status' | 'requestPayload' | 'errorMessage'
     >,
   ) {
-    const { providerResponse, confirmedTransaction } = pa;
     return this.prisma.paymentAttempt.update({
       where: { id },
       data: {
-        ...pa,
-        providerResponse: providerResponse ?? {},
-        confirmedTransaction: confirmedTransaction ?? {},
-        retries: { increment: 1 },
+        ...data,
+        completedAt: new Date(),
       },
-    });
-  }
-
-  public async findProvider(name: string) {
-    return this.prisma.provider.findUnique({
-      where: { name },
-    });
-  }
-
-  public async findPaymentRecord(
-    where: Pick<PaymentRecord, 'requestReference'>,
-  ) {
-    return this.prisma.paymentRecord.findFirst({
-      where,
-    });
-  }
-
-  public async findUniquePaymentRecord(
-    where: Pick<PaymentRecord, 'requestReference' | 'id'>,
-  ) {
-    return this.prisma.paymentRecord.findUnique({
-      where,
     });
   }
 }

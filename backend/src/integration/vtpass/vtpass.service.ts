@@ -2,7 +2,6 @@ import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BillCategory, Providers } from '@prisma/client';
-import { BillerNames } from 'src/common/constants/biller';
 import type { BillerItem } from 'src/common/types/billerItem';
 import type {
   GetVTPassCategoryResponse,
@@ -21,6 +20,7 @@ import {
 } from 'src/common/utils/getStaticInternalCode';
 import type { Config } from 'src/config/configuration';
 import { STATIC_BILL_ITEMS } from './vtpass.constants';
+import { SUPPORTED_BILLERS } from 'src/common/constants/biller';
 
 @Injectable()
 export class VTPassService {
@@ -220,8 +220,9 @@ export class VTPassService {
 
   private getInternalCode(billerName: string, category: BillCategory, amount) {
     const name =
-      BillerNames.find((name) => billerName.toLowerCase().includes(name)) ||
-      billerName;
+      SUPPORTED_BILLERS.find((name) =>
+        billerName.toLowerCase().includes(name),
+      ) || billerName;
 
     if (isStaticCategory(category)) {
       return getStaticInternalCode(name, category);

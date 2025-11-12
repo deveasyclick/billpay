@@ -4,7 +4,10 @@ import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { PayObject } from 'src/common/types/payment';
 import { Config } from 'src/config/configuration';
-import { INTERSWITCH_BASIC_TOKEN_KEY } from './interswitch.constants';
+import {
+  INTERSWITCH_BASIC_TOKEN_KEY,
+  SUPPORTED_BILL_ITEMS,
+} from './interswitch.constants';
 import type {
   BillerCategoriesResponse,
   BillerCategoryResponse,
@@ -15,6 +18,16 @@ import type {
   TransactionResponse,
   ValidateCustomersResponse,
 } from './types';
+import type { BillerItem } from 'src/common/types/billerItem';
+import { BillCategory, Providers } from '@prisma/client';
+import {
+  SUPPORTED_BILLERS,
+  SUPPORTED_ELECTRICITY_PROVIDERS,
+} from 'src/common/constants/biller';
+import {
+  getStaticInternalCode,
+  isStaticCategory,
+} from 'src/common/utils/getStaticInternalCode';
 
 interface StoredToken {
   access_token: string;
@@ -239,5 +252,195 @@ export class InterSwitchService {
         )!}/gettransaction.json?merchantCode=${this.config.get('interswitchMerchantCode')}&amount=${amount}&transactionReference=${transactionReference}`,
       );
     return data;
+  }
+
+  public async findPlans(): Promise<BillerItem[]> {
+    const supportedCategories = Object.keys(SUPPORTED_BILL_ITEMS);
+    const billingItems: BillerItem[] = [];
+
+    // 1️⃣ Fetch categories with billers
+    const res = await this.getCategoriesWithBillers();
+    const allCategories = res.BillerList?.Category ?? [];
+
+    // 2️⃣ Extract only supported billers
+    const billers = allCategories.flatMap((category) => {
+      if (!supportedCategories.includes(category.Name)) return [];
+
+      const supportedBillerNames = SUPPORTED_BILL_ITEMS[category.Name];
+      return category.Billers.filter((biller) =>
+        supportedBillerNames.includes(biller.Name),
+      ).map((biller) => ({
+        id: biller.Id,
+        name: biller.Name,
+        categoryId: category.Id,
+        categoryName: category.Name,
+      }));
+    });
+
+    // Filter out invalid billers
+    const validBillers = billers.filter((b) => b.id);
+
+    // 3️⃣ Fetch all biller items in parallel (with concurrency control)
+    const results = await Promise.allSettled(
+      validBillers.map((biller) => this.fetchBillerItemsSafe(biller)),
+    );
+
+    // 4️⃣ Merge successful results
+    for (const r of results) {
+      if (r.status === 'fulfilled') billingItems.push(...r.value);
+    }
+
+    return billingItems;
+  }
+
+  /**
+   * Fetches and transforms biller payment items safely.
+   */
+  private async fetchBillerItemsSafe(biller: {
+    id: number;
+    name: string;
+    categoryId: number;
+    categoryName: string;
+  }): Promise<BillerItem[]> {
+    try {
+      const itemsResp = await this.getBillerPaymentItems(String(biller.id));
+      const items = itemsResp.PaymentItems ?? [];
+
+      return items
+        .map((item) => {
+          const amount = Number(item.Amount);
+          let displayName = item.Name || item.Id;
+          const category = this.getCategory(
+            biller.categoryName,
+            item.BillerName,
+          );
+          if (!category) return null;
+
+          // return if airtime and amount is greater than 50 naira and amount type is greater than 1. amount type 1 is minimum. i.e Don’t save an airtime item if amount > ₦50 and it allows payment greater than expected.
+          if (
+            category === BillCategory.AIRTIME &&
+            amount > 5000 &&
+            item.AmountType > 1
+          ) {
+            return null;
+          }
+
+          let internalCode = this.getInternalCode(
+            item.BillerName,
+            category as BillCategory,
+            Math.round(amount / 100), // covert amount to naira and round to 2 decimal places to match vtpass amount
+          );
+
+          if (category === BillCategory.ELECTRICITY) {
+            // use internal code as display name for electricity
+            displayName = internalCode.split('-').join(' ').toUpperCase();
+
+            // add postpaid or prepaid to internal code
+            if (item.BillerName.toLowerCase().includes('postpaid')) {
+              internalCode = `${internalCode}-postpaid`;
+            } else {
+              internalCode = `${internalCode}-prepaid`;
+            }
+          }
+
+          if (category === BillCategory.GAMING) {
+            displayName = item.BillerName;
+          }
+
+          return {
+            category,
+            billerName: item.BillerName,
+            name: displayName,
+            amount,
+            amountType: item.AmountType,
+            active: true,
+            internalCode,
+            paymentCode: item.PaymentCode,
+            billerId: item.BillerId,
+            provider: Providers.INTERSWITCH,
+          };
+        })
+        .filter(Boolean) as BillerItem[];
+    } catch (err) {
+      console.warn(
+        `[Interswitch] Failed to fetch items for ${biller.name} (${biller.id}) in ${biller.categoryName}:`,
+        err.response?.data ?? err.message ?? err,
+      );
+      return [];
+    }
+  }
+
+  private getCategory(categoryName: string, billerName: string) {
+    let category: string = '';
+    // category in provider is 'Mobile Recharge'
+    if (
+      categoryName === 'Mobile Recharge' ||
+      (categoryName === 'Mobile/Recharge' && billerName.includes('Data'))
+    ) {
+      // payment item for airtime must have 0 amount type so as to allow customer to buy any amount of airtime
+      // this is not the case for DATA bills
+      category = 'AIRTIME';
+    }
+
+    // category in production is 'Airtime and Data'
+    if (
+      categoryName === 'Airtime and Data' ||
+      categoryName === 'Airtel Data' ||
+      (categoryName === 'Mobile/Recharge' && billerName.includes('Data'))
+    ) {
+      category = 'DATA';
+    }
+
+    if (categoryName === 'Utility Bills' || categoryName === 'Utilities') {
+      category = 'ELECTRICITY';
+    }
+
+    // category in provider is 'Cable TV'
+    if (categoryName === 'Cable TV Bills' || categoryName === 'Cable TV') {
+      category = 'TV';
+    }
+
+    if (categoryName === 'Betting, Lottery and Gaming') {
+      category = 'GAMING';
+    }
+
+    return category;
+  }
+
+  private getInternalCode(billerName: string, category: BillCategory, amount) {
+    let name =
+      SUPPORTED_BILLERS.find((name) =>
+        billerName.toLowerCase().includes(name),
+      ) || billerName;
+    if (name.toLowerCase().includes('t2')) {
+      name = '9mobile';
+    }
+    if (category === BillCategory.ELECTRICITY) {
+      const billerNameLower = billerName.toLowerCase();
+
+      for (const [key, value] of Object.entries(
+        SUPPORTED_ELECTRICITY_PROVIDERS,
+      )) {
+        const values = Array.isArray(value) ? value : [value];
+
+        // Check if the biller name contains the key or any of the value strings
+        if (
+          billerNameLower.includes(key) ||
+          values.some((v) => billerNameLower.includes(v))
+        ) {
+          name = key;
+          break;
+        }
+      }
+    }
+    if (isStaticCategory(category)) {
+      return getStaticInternalCode(name, category);
+    }
+    // e.g: mtn-data-amount
+
+    return `${name} ${category} ${Math.round(amount)}`
+      .split(' ')
+      .join('-')
+      .toLowerCase();
   }
 }

@@ -28,6 +28,8 @@ import { PaymentService } from '../payment/payment.service';
 import { QueueService } from '../queue/queue.service';
 import { BillRepository } from './bill.repository';
 import type { PayBillDTO } from './dtos/payment';
+import type { BillerItem } from 'src/common/types/billerItem';
+import { SUPPORTED_BILL_ITEMS } from 'src/integration/interswitch/interswitch.constants';
 
 @Injectable()
 export class BillsService {
@@ -41,6 +43,9 @@ export class BillsService {
     private readonly queueService: QueueService,
   ) {}
 
+  async onModuleInit() {
+    await this.syncPlansToDB();
+  }
   /**
    * 🔹 Validate customer & amount
    */
@@ -154,7 +159,6 @@ export class BillsService {
       'reference' | 'amount' | 'id' | 'customerId' | 'plan'
     >,
   ): Promise<PayResponse> {
-    const defaultPhoneNumber = '+2348111111111';
     const { category, provider, biller, ...rest } = item;
     const attempt = await this.paymentService.createPaymentAttempt({
       providerId: provider.id,
@@ -487,5 +491,140 @@ export class BillsService {
 
   public async findItemById(id: string) {
     return this.billRepo.findItemById(id);
+  }
+
+  public async getBillingItems(providerName?: string) {
+    const providers = await this.billRepo.findActiveProviders();
+    const vtpassProvider = providers.find((p) => p.name === Providers.VTPASS);
+    const interswitchProvider = providers.find(
+      (p) => p.name === Providers.INTERSWITCH,
+    );
+    if (!interswitchProvider || !vtpassProvider) {
+      throw new BadRequestException('Providers not found');
+    }
+
+    if (providerName) {
+      let provider = interswitchProvider;
+      if (providerName === Providers.VTPASS) {
+        provider = vtpassProvider;
+      }
+      if (!provider) {
+        throw new BadRequestException('Provider not found');
+      }
+      // Fallback to interswitch if provider not found
+      return this.billRepo.findItemsByProvider(provider.id);
+    }
+
+    const categories = await this.billRepo.findCategories();
+    const vtpassItemIds = categories
+      .filter(
+        (c) =>
+          c.name === BillCategory.AIRTIME ||
+          c.name === BillCategory.DATA ||
+          c.name === BillCategory.ELECTRICITY,
+      )
+      .map((c) => c.id);
+    const interswitchItemIds = categories
+      .filter(
+        (c) =>
+          c.name !== BillCategory.AIRTIME &&
+          c.name !== BillCategory.DATA &&
+          c.name !== BillCategory.ELECTRICITY,
+      )
+      .map((c) => c.id);
+
+    const res = await Promise.all([
+      this.billRepo.findItemsByProvider(vtpassProvider.id, vtpassItemIds),
+      this.billRepo.findItemsByProvider(
+        interswitchProvider.id,
+        interswitchItemIds,
+      ),
+    ]);
+    return res.flat();
+  }
+
+  // TODO: create a script to run this. Currently running it inside onModuleInit. Must run once on app startup
+  // TODO: Fix duplicates
+  public async syncPlansToDB() {
+    const [categories, providers] = await Promise.all([
+      this.billRepo.findCategories(),
+      this.billRepo.findActiveProviders(),
+    ]);
+    const interswitchProvider = providers.find(
+      (p) => p.name === Providers.INTERSWITCH,
+    );
+    const vtpassProvider = providers.find((p) => p.name === Providers.VTPASS);
+
+    if (!interswitchProvider || !vtpassProvider) {
+      this.logger.log('providers not found', { providers });
+      throw new Error('Providers not found');
+    }
+    const interswitchPlans = await this.interswitchService.findPlans();
+    const vtPassPlans = await this.vtpassService.getPlans();
+    const uniqueBillers = Array.from(
+      new Map<string, { name: string; billerId: string }>([
+        ...vtPassPlans.map(
+          (b) =>
+            [b.billerId, { name: b.billerName, billerId: b.billerId }] as const,
+        ),
+        ...interswitchPlans.map(
+          (b) =>
+            [b.billerId, { name: b.billerName, billerId: b.billerId }] as const,
+        ),
+      ]).values(),
+    );
+
+    const existingBillers = await this.billRepo.findBillersByIds(
+      uniqueBillers.map((b) => b.billerId),
+    );
+
+    const existingIds = new Set(existingBillers.map((b) => b.billerId));
+    const newBillers = uniqueBillers.filter(
+      (b) => !existingIds.has(b.billerId),
+    );
+
+    // --- 3️⃣ Insert missing billers in bulk ---
+    if (newBillers.length > 0) {
+      await this.billRepo.createManyBillers(newBillers);
+    }
+    // --- 4️⃣ Retrieve all billers for mapping ---
+    const allBillers = await this.billRepo.findAllBillers();
+    let items: any = [];
+    for (const i of interswitchPlans) {
+      items.push({
+        internalCode: i.internalCode,
+        name: i.name,
+        paymentCode: i.paymentCode,
+        categoryId: categories.find((c) => c.name === i.category)?.id!,
+        billerId: allBillers.find((b) => b.billerId === i.billerId)!.id,
+        amount: i.amount,
+        amountType: i.amountType,
+        active: true,
+      });
+    }
+
+    await this.billRepo.bulkUpsertItems(interswitchProvider.id, items);
+
+    this.logger.log(`${items.length} interswitch items synced successfully`);
+
+    this.logger.log('Syncing vtpass items');
+
+    let vtpassItems: any = [];
+    for (const i of vtPassPlans) {
+      vtpassItems.push({
+        internalCode: i.internalCode,
+        name: i.name,
+        paymentCode: i.paymentCode,
+        categoryId: categories.find((c) => c.name === i.category)?.id!,
+        billerId: allBillers.find((b) => b.billerId === i.billerId)!.id,
+        amount: i.amount,
+        amountType: i.amountType,
+        active: true,
+        image: i.image,
+      });
+    }
+
+    await this.billRepo.bulkUpsertItems(vtpassProvider.id, vtpassItems);
+    this.logger.log(`${vtpassItems.length} vtpass items synced successfully`);
   }
 }

@@ -1,165 +1,364 @@
-# BillPay
+# Billpay Bill Payment Service
 
-BillPay is a secure and reliable **bill payment service** built with **NestJS**, **Prisma ORM**, **PostgreSQL**, and **Redis**, using **Interswitch** as the payment processor and biller aggregator.  
-
-With BillPay, users can conveniently purchase **airtime, data bundles, cable TV subscriptions, and electricity tokens** — while businesses can rely on a robust backend for handling transactions at scale.  
+The **Billpay Bill Payment Service** handles bill payments across multiple providers (currently **Interswitch** and **VTPass**) and ensures reliable, validated, and auditable transactions. This service is part of a monorepo that also includes the frontend application.
 
 ---
 
-## ✨ Features
+## Table of Contents
 
-- 📱 **Airtime Top-up** – Recharge any mobile line instantly.  
-- 🌐 **Data Bundles** – Buy affordable internet data plans.  
-- 📺 **Cable TV Subscription** – Renew DSTV, GOTV, Startimes, etc. with ease.  
-- ⚡ **Electricity Bills** – Pay prepaid and postpaid electricity bills, receive tokens instantly.  
-- 💳 **Interswitch Integration** – Secure payment collection and bill processing.  
-- 💾 **Persistent Storage** – PostgreSQL for relational data.  
-- ⚡ **Caching & Queues** – Redis for caching, rate limiting, and background jobs.  
-- 🔐 **Secure Transactions** – End-to-end encryption, JWT auth, and audit logs.  
-- 🕒 **24/7 Availability** – Always-on service for seamless bill payments.  
-
----
-
-## 🛠️ Tech Stack
-
-- **Backend Framework**: [NestJS](https://nestjs.com/) – scalable Node.js framework.  
-- **ORM**: [Prisma](https://www.prisma.io/) – type-safe database client.  
-- **Database**: [PostgreSQL](https://www.postgresql.org/) – relational database for transactions and records.  
-- **Cache & Queue**: [Redis](https://redis.io/) – caching, session management, and job queues.  
-- **Payment Gateway**: [Interswitch](https://www.interswitchgroup.com/) – for biller APIs and payment collection.  
-- **Auth**: JWT-based authentication with role-based access control.  
-- **Package Manager**: [pnpm](https://pnpm.io/) – fast, disk-efficient package manager.  
+1. [Overview](#overview)
+2. [Features](#features)
+3. [Architecture](#architecture)
+4. [Payment Flow](#payment-flow)
+5. [Setup](#setup)
+6. [Environment Variables](#environment-variables)
+7. [Database & Migrations](#database--migrations)
+8. [API Usage](#api-usage)
+9. [Queue & Reconciliation](#queue--reconciliation)
+10. [Seeding](#seeding-data)
+11. [Testing](#testing)
+12. [Contributing](#contributing)
+13. [Folder Structure](#folder-structure-high-level)  
+14. [Tradeoffs](#tradeoffs)
 
 ---
 
-## 🚀 Getting Started
+## Overview
 
-### Prerequisites
+The Bill Payment Service is responsible for:
 
-- [Node.js](https://nodejs.org/) v16+  
-- [pnpm](https://pnpm.io/) v8+  
-- [PostgreSQL](https://www.postgresql.org/) v13+  
-- [Redis](https://redis.io/) v6+  
-- [Prisma CLI](https://www.prisma.io/docs/getting-started)  
-- Interswitch **client ID**, **client secret**, and **biller credentials**  
+- ✅ Customer and amount validation before processing payments
+- ✅ Supports multiple bill providers (Interswitch & VTPass).
+- ✅ Confirm payments via Interswitch Payment APIs.
+- ✅ Automatic retries for pending transactions
+- ✅ Asynchronous reconciliation using a queue (BullMQ)
+- ✅ Bulk synchronization of billing plans from providers
+- ✅ Detailed logging using Winston
 
-### Installation
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/yourusername/billpay.git
-   cd billpay
-    ```
-
-2. Install dependencies:
-
-   ```bash
-   pnpm install
-   ```
-
-3. Configure environment variables in a `.env` file:
-
-   ```env
-   DATABASE_URL="postgresql://user:password@localhost:5432/billpay"
-   REDIS_URL="redis://localhost:6379"
-   JWT_SECRET="your_jwt_secret"
-
-   # Interswitch API Credentials
-   INTERSWITCH_CLIENT_ID="your_client_id"
-   INTERSWITCH_CLIENT_SECRET="your_client_secret"
-   INTERSWITCH_BASE_URL="https://sandbox.interswitchng.com" # or production URL
-   ```
-
-4. Run database migrations:
-
-   ```bash
-   pnpm prisma migrate dev --name init
-   ```
-
-5. Generate Prisma client:
-
-   ```bash
-   pnpm prisma generate
-   ```
-
-6. Start the development server:
-
-   ```bash
-   pnpm run start:dev
-   ```
+It is implemented with **NestJS + TypeScript + Prisma**, and structured for scalability and maintainability.
 
 ---
 
-## 📦 API Endpoints (Examples)
+## Features
 
-| Method | Endpoint                  | Description                          |
-| ------ | ------------------------- | ------------------------------------ |
-| GET    | `/api/v1/items`           | Get Interswitch payment Items        |
-| POST   | `/api/v1/payments/pay`    | Pay bill                             |
-| POST   | `/api/v1/payments/verify` | Verify payment status                |
-
----
-
-## 🔧 Development Workflow
-
-- **Code Quality**: ESLint + Prettier
-- **Database Management**: Prisma migrations + seeders
-- **Caching**: Redis for sessions, rate limiting, and biller response caching
-- **Background Jobs**: Redis queues for async tasks (payment reconciliation, retries)
-- **Error Handling**: Global exception filters in NestJS
-- **Testing**: Unit & integration tests with Jest
+- ✅ Customer and amount validation before processing payments  
+- ✅ Supports multiple bill providers (Interswitch & VTPass)  
+- ✅ Automatic retries for pending transactions  
+- ✅ Asynchronous reconciliation using a queue  
+- ✅ Bulk synchronization of billing plans from providers  
+- ✅ Detailed logging using Winston  
 
 ---
 
-## 🗂️ Project Structure
+## Architecture
+
+### Core Modules
+
+- **`BillsService`** – Main service for processing bill payments.
+- **`PaymentService`** – Handles payment attempts and state management.
+- **`InterswitchService`** – Integrates with Interswitch APIs.
+- **`VTPassService`** – Integrates with VTPass APIs.
+- **`BillRepository`** – Prisma-based repository for billing items.
+- **`QueueService`** – Handles retry and reconciliation jobs.
+
+### Key Concepts
+
+1. **Validation**  
+   Validates customer details and amount rules for each bill category (AIRTIME, DATA, TV, ELECTRICITY).
+
+2. **Provider Selection**  
+   Tries the requested provider first; falls back to other available providers if needed.
+
+3. **Payment Attempt Logging**  
+   Each attempt is logged in the database with the request payload, response, and status.
+
+4. **Retry and Reconciliation**  
+   Pending or failed payments are retried or added to a reconciliation queue.
+
+5. **Sync Plans**  
+   Fetches plans from Interswitch and VTPass and updates the local database using a cron job.
+
+---
+
+## Payment Flow
 
 ```bash
-src/
- ├── integration/interswitch
- ├── modules/
- │   ├── auth/           # Authentication & user management
- │   ├── payments/       # Interswitch payment integration
- │   ├── bills/        # Airtime top-up
- ├── common/             # Shared services, interceptors, filters, utils
- ├── prisma/             # Prisma schema and migrations
- ├── jobs/               # Background jobs (queues using Redis)
- ├── main.ts             # Application entry point
+Client → BillsController → BillsService → PaymentService
+          ↓                     ↓
+      Validation          Provider API (Interswitch / VTPass)
+          ↓                     ↓
+     PaymentAttempt ← ← ← ← ← QueueService (Retries / Reconciliation)
+          ↓
+      Payment Status Update
+          ↓
+       Database (Postgres)
+```
+
+- Payments go through a state machine: `PENDING → PROCESSING → SUCCESS/FAILED`.
+- Failed or pending transactions can be retried automatically.
+
+---
+
+## Setup
+
+This project uses **pnpm** and is part of a monorepo.
+
+```bash
+# Clone the repo
+cd backend
+
+# Install dependencies
+pnpm install
+
+# Generate Prisma client
+pnpm dlx prisma generate
+
+# Apply database migrations
+pnpm dlx prisma migrate dev
+
+# Start development server
+pnpm --filter backend dev
+
+# Swagger docs available at:
+http://localhost:3000/docs
+```
+
+Requirements:
+
+- Node.js >= 24 (managed via nvm)
+- PostgreSQL
+- pnpm
+- Redis (for BullMQ queue processing)
+
+---
+
+## Environment Variables
+
+```bash
+NODE_ENV=development
+PORT=3000
+
+# DATABASE
+DB_URL=postgresql://user:password@localhost:5432/dbname
+
+# REDIS
+REDIS_URL=redis://localhost:6379
+
+# INTERSWITCH
+INTERSWITCH_CLIENT_ID=
+INTERSWITCH_SECRET_KEY=
+INTERSWITCH_TERMINAL_ID=
+INTERSWITCH_API_BASE_URL=
+INTERSWITCH_PAYMENT_BASE_URL=
+INTERSWITCH_AUTH_URL=
+INTERSWITCH_PAYMENT_REFERENCE_PREFIX=
+INTERSWITCH_MERCHANT_CODE=
+INTERSWITCH_WEBHOOK_SECRET=
+
+# VTPASS
+VTPASS_API_BASE_URL=
+VTPASS_APIKEY=
+VTPASS_SECRET_KEY=
+VTPASS_PUBLIC_KEY=
 ```
 
 ---
 
-## 🧪 Running Tests
+## Database & Migrations
+
+- The service uses **Prisma** for database interactions.
+- Migrations are stored in `prisma/migrations`.
+- Apply migrations with:
 
 ```bash
-# Run unit tests
-pnpm run test
+pnpm dlx prisma migrate deploy
+```
 
-# Run e2e tests
-pnpm run test:e2e
+- Generate Prisma client:
 
-# Test coverage
-pnpm run test:cov
+```bash
+pnpm dlx prisma generate
 ```
 
 ---
 
-## 📌 Roadmap
+## Seeding Data
 
-- [ ] Add wallet system for users
-- [ ] Scheduled bill payments & auto-renewals
-- [ ] GraphQL API support
-- [ ] Notifications (email/SMS/WhatsApp) for successful payments
+```bash
+pnpm prisma db seed
+```
 
----
-
-## 🤝 Contributing
-
-Contributions, issues, and feature requests are welcome!
-Fork the repo, open a PR, or raise an issue.
+- Adds Interswitch and VTPass as providers.
+- Adds default billing categories: AIRTIME, DATA, TV, ELECTRICITY, GAMING.
 
 ---
 
-## 📜 License
+## API Usage
 
-This project is licensed under the **MIT License**.
+The service exposes a REST API via `BillsController`.
+Swagger is the primary source of truth: `/docs`.
+
+### Endpoints
+
+#### **POST /bills/pay** – Pay a bill
+
+**Request Example:**
+
+```json
+{
+  "billingItemId": "cuid123",
+  "paymentReference": "ref_456",
+  "provider": "VTPASS"
+}
+```
+
+**Response Example:**
+
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data": {
+    "paymentRef": "ref_456",
+    "amount": 5000,
+    "status": "SUCCESS",
+    "metadata": { "rechargePin": "1234-5678" }
+  }
+}
+```
+
+#### **GET /bills/items** – Retrieve billing items
+
+**Optional Query:**
+
+```bash
+GET /bills/items?provider=VTPASS
+```
+
+**Response Example:**
+
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data": [
+    {
+      "id": "item123",
+      "amount": 5000,
+      "amountType": 1,
+      "biller": { "name": "MTN", "billerId": "1029" },
+      "provider": { "name": "VTPASS" },
+      "name": "MTN 1GB Data",
+      "internalCode": "mtn-data-1gb",
+      "category": "DATA",
+      "paymentCode": "mtn-1gb",
+      "image": "https://example.com/image.png"
+    }
+  ]
+}
+```
+
+> Swagger automatically generates request/response schemas, so manual updates are optional
+
+---
+
+## Queue & Reconciliation
+
+- Uses **BullMQ** for asynchronous payment retries and reconciliation.
+
+- Jobs include payment confirmation, fallback attempts, and error handling.
+
+- **Redis** is required for queue processing.
+
+---
+
+## Testing
+
+- End-to-end tests are located in `test/`.
+- Run tests:
+
+```bash
+pnpm test
+```
+
+- Use mocks for external providers in `test/mocks`.
+
+---
+
+## Contributing
+
+- Create feature branches from `main`.
+- Follow coding standards and run linter before commits:
+
+```bash
+pnpm lint
+```
+
+- Write unit tests for new features.
+- Submit pull requests with clear descriptions.
+
+---
+
+## Folder Structure (high-level)
+
+```bash
+├── src
+│   ├── modules/bills
+│   │   ├── bills.controller.ts
+│   │   ├── bills.service.ts
+│   │   ├── dtos/
+│   │   └── utils/
+│   ├── integration/interswitch
+│   ├── integration/vtpass
+│   └── prisma.service.ts
+├── prisma
+│   ├── schema.prisma
+│   └── seed.ts
+├── Dockerfile
+├── docker-compose.yml
+├── pnpm-workspace.yaml
+└── README.md
+```
+
+---
+
+## Notes
+
+- Business logic (amount validation, provider selection, retries) is encapsulated in BillsService.
+- Payments go through a state machine (PENDING → PROCESSING → SUCCESS/FAILED).
+- Transactions and attempts are stored in Postgres with Prisma.
+- Swagger docs automatically generate request/response schemas, so you don’t need to manually maintain examples in the README.
+
+## Tradeoffs
+
+While the Billpay service is designed for reliability and flexibility, certain tradeoffs were made:
+
+1. **Immediate Payment Response**
+
+   - Confirms user payments via API and returns a response immediately if payment is successful, rather than waiting for webhook confirmation.
+   - **Tradeoff:** Improves UX with instant feedback, but introduces slight risk of reporting a success before full provider confirmation. Webhook reconciliation still ensures eventual consistency.
+
+2. **Provider Fallback Logic**
+
+   - If a requested provider fails, the system attempts fallback using internal code mapping.
+   - **Tradeoff:** Fallback is not 100% reliable because internal code mappings may not exist for all providers or categories, especially dynamic ones.
+
+3. **Plan Fetching and Mapping**
+
+   - Plans are fetched dynamically from Interswitch and VTPass, with static plans merged locally.
+   - **Tradeoff:** Certain items are filtered if their amounts or types don’t match expected rules (e.g., airtime > ₦5000 with amountType > 1), which could exclude valid provider offerings.
+
+4. **Caching Tokens for Provider APIs**
+
+   - API tokens for Interswitch are cached with expiry buffers and in-progress request deduplication.
+   - **Tradeoff:** Reduces redundant API calls and improves performance, but if the cache is corrupted or missed, fetching a new token may cause a slight delay.
+
+5. **Complex Internal Code Mapping**
+
+   - Internal codes are generated per biller, category, and amount to unify VTPass and Interswitch items.
+   - **Tradeoff:** Ensures consistency for reconciliation and reporting but adds complexity and potential mismatch for unrecognized billers or dynamic offerings.
+
+6. **REST API vs. GraphQL**
+
+   - REST endpoints are simple (`POST /bills/pay`, `GET /bills/items`).
+   - **Tradeoff:** Limited flexibility for complex queries; multiple calls may be required for nested data.

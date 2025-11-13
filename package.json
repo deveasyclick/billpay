@@ -2,7 +2,7 @@
   "name": "billpay",
   "private": true,
   "version": "1.0.0",
-  "description": "Elite Africa monorepo (frontend + backend)",
+  "description": "Billpay monorepo (frontend + backend)",
   "workspaces": [
     "frontend",
     "backend"

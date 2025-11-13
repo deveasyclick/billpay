@@ -1,0 +1,15 @@
+{
+  "name": "billpay",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Elite Africa monorepo (frontend + backend)",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter './*' run dev",
+    "build": "pnpm --filter './*' run build",
+    "lint": "pnpm --filter './*' run lint"
+  }
+}

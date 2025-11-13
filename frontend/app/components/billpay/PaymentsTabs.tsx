@@ -1,8 +1,8 @@
 'use client';
 
-import { AirtimeTab, ElectricityTab } from '@/buy';
-import DataTab from '@/buy/data';
-import TVTab from '@/buy/TV';
+import { AirtimeTab, ElectricityTab } from '@/components/billpay';
+import DataTab from '@/components/billpay/data';
+import TVTab from '@/components/billpay/TV';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Lightbulb, Phone, Tv, Wifi } from 'lucide-react';

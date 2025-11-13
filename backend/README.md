@@ -1,4 +1,4 @@
-# Billpay Bill Payment Service
+# Billpay Backend
 
 The **Billpay Bill Payment Service** handles bill payments across multiple providers (currently **Interswitch** and **VTPass**) and ensures reliable, validated, and auditable transactions. This service is part of a monorepo that also includes the frontend application.
 

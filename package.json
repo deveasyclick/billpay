@@ -8,8 +8,11 @@
     "backend"
   ],
   "scripts": {
-    "dev": "pnpm --filter './*' run dev",
+    "dev": "concurrently \"pnpm --filter backend dev\" \"pnpm --filter frontend dev\"",
     "build": "pnpm --filter './*' run build",
     "lint": "pnpm --filter './*' run lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }

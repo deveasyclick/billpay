@@ -1,111 +1,207 @@
-# BillPay
+# Billpay Frontend
 
-BillPay is a secure and reliable **bill payment service** built with **NextJS**, **Shadcn.ui**, **Tailwind CSS**, **Interswitch** as the payment processor, **VTPass** and **Interswitch** as the biller aggregator.
+The **Billpay Frontend** is a modern **Next.js** application that powers the user interface for the **Billpay** platform — supporting payments for **airtime, data, TV subscriptions, and electricity**.
 
-With BillPay, users can conveniently purchase **airtime, data bundles, cable TV subscriptions, and electricity tokens** while businesses can rely on a robust backend for handling transactions at scale.  
-
----
-
-## ✨ Features
-
-- 📱 **Airtime Top-up** – Recharge any mobile line instantly.  
-- 🌐 **Data Bundles** – Buy affordable internet data plans.  
-- 📺 **Cable TV Subscription** – Renew DSTV, GOTV, Startimes, etc. with ease.  
-- ⚡ **Electricity Bills** – Pay prepaid and postpaid electricity bills, receive tokens instantly.  
-- 💳 **Interswitch Integration** – Secure payment collection and bill processing. 
-- 💳 **Interswitch and VTPass Integration** – Multi-provider bill processing support.  
-- 🕒 **24/7 Availability** – Always-on service for seamless bill payments.  
+This frontend is part of a **pnpm workspace monorepo**, alongside the backend service, enabling shared tooling, consistent configuration, and fast dependency management.
 
 ---
 
-## 🛠️ Tech Stack
+## Table of Contents
 
-- **Frontend Framework**: [Nextjs](https://nextjs.org) – scalable Node.js framework.  
-- **Payment Gateway**: [Interswitch](https://www.interswitchgroup.com/) – for biller APIs and payment collection.
-Styling: [Tailwind CSS](https://tailwindcss.com/) – utility-first CSS framework for fast, responsive UI development.
-UI Components: [shadcn/ui](https://tailwindcss.com/) – beautifully designed, accessible React components built with Radix and Tailwind.
-- **Billers**: [Interswitch](https://www.interswitchgroup.com/) and [VTPass](https://www.vtpass.com) – for biller APIs.
-- **Package Manager**: [pnpm](https://pnpm.io/) – fast, disk-efficient package manager.  
+1. [Overview](#overview)
+2. [Setup](#setup)
+3. [Available Scripts](#available-scripts)
+4. [Project Structure](#project-structure)
+5. [Key Components](#key-components)
+6. [Public Assets](#public-assets)
+7. [Contributing](#contributing)
 
 ---
 
-## 🚀 Getting Started
+## Overview
 
-### Prerequisites
+The frontend provides a seamless interface for processing bill payments, managing transactions, and interacting with multiple providers.
 
-- [Node.js](https://nodejs.org/) v22+  
-- [pnpm](https://pnpm.io/) v10+  
+It is built with:
+
+* ⚡ **Next.js** – App Router & server components
+* 🧱 **TypeScript** – Type-safe development
+* 💅 **CSS Modules / Tailwind / custom styles** (depending on your styling setup)
+* 🧩 **Reusable components** for payment flows and UI consistency
+* 🧠 **Form validation schemas** for each bill category (airtime, data, TV, electricity)
+
+---
+
+## Setup
+
+### Requirements
+
+* Node.js ≥ 20
+* pnpm ≥ 8
+* Access to the backend API service (for real payment operations)
 
 ### Installation
 
-1. Clone the repository:
+From the monorepo root:
 
-   ```bash
-   git clone https://github.com/deveasyclick/billpay-web.git
-   cd billpay
-    ```
+```bash
+pnpm install
+```
 
-2. Install dependencies:
+Start the frontend in development mode:
 
-   ```bash
-   pnpm install
-   ```
+```bash
+pnpm --filter frontend dev
+```
 
-3. Start the development server:
+Build for production:
 
-   ```bash
-   pnpm dev
-   ```
+```bash
+pnpm --filter frontend build
+```
+
+Run linter:
+
+```bash
+pnpm --filter frontend lint
+```
 
 ---
 
-## 🗂️ Project Structure
+## Available Scripts
+
+| Command                        | Description                         |
+| ------------------------------ | ----------------------------------- |
+| `pnpm --filter frontend dev`   | Starts the local development server |
+| `pnpm --filter frontend build` | Builds the frontend for production  |
+| `pnpm --filter frontend lint`  | Runs code quality checks            |
+
+---
+
+## Project Structure
 
 ```bash
-├── README.md
+frontend
 ├── app
 │   ├── components
+│   │   ├── Input.tsx
+│   │   ├── SelectTrigger.tsx
+│   │   ├── banner/
+│   │   ├── billpay/
+│   │   │   ├── airtime/
+│   │   │   ├── data/
+│   │   │   ├── electricity/
+│   │   │   ├── TV/
+│   │   │   ├── Beneficiaries.tsx
+│   │   │   ├── NetworkAndPhone.tsx
+│   │   │   ├── PaymentsTabs.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   ├── TransactionHistory.tsx
+│   │   │   └── index.tsx
+│   │   ├── buttons/
+│   │   ├── card/
+│   │   ├── layouts/
+│   │   ├── transaction/
+│   │   └── ui/
 │   ├── favicon.ico
 │   ├── globals.css
 │   ├── layout.tsx
-│   ├── lib
+│   ├── lib/
 │   ├── page.tsx
-│   └── types
-├── biome.json
-├── components.json
-├── next-env.d.ts
+│   └── types/
+├── public/
 ├── next.config.ts
-├── package.json
-├── pnpm-lock.yaml
 ├── postcss.config.mjs
-├── public
-└── tsconfig.json
+├── tsconfig.json
+└── package.json
 ```
 
 ---
 
-## 🧪 Running Tests
+## Key Components
+
+### 🧭 Billpay Components (`app/components/billpay/`)
+
+Core logic and UI for each bill type:
+
+* **Airtime** – `Airtime.tsx`, `AirtimeAmount.tsx`, `AirtimeSummary.tsx`
+* **Data** – `Data.tsx`, `DataBundleSelector.tsx`
+* **TV** – `Tv.tsx`, `TvBundle.tsx`, `TvBundleSelector.tsx`
+* **Electricity** – `Electricity.tsx`, `ElectricityAmount.tsx`, `ElectricitySummary.tsx`
+
+Shared billpay utilities:
+
+* `Sidebar.tsx` – Main navigation for bill types
+* `PaymentsTabs.tsx` – Tabs for switching between payment flows
+* `TransactionHistory.tsx` – Displays user payment history
+* `Beneficiaries.tsx` & `NetworkAndPhone.tsx` – Input and management for saved users
+
+---
+
+### 🎨 UI & Layout Components
+
+Reusable UI elements and layout helpers:
+
+* **UI Core (`ui/`)**: `button.tsx`, `card.tsx`, `form.tsx`, `input.tsx`, `select.tsx`, `tabs.tsx`, etc.
+* **Layout**: `app/components/layouts/header/`
+* **Buttons & Cards**: `PaymentButton.tsx`, `BillCard.tsx`
+* **Banners**: `app/components/banner/`
+
+---
+
+### 🧰 Utilities
+
+* `lib/utils.ts` – Helper functions for formatting and computation
+* `types/` – Shared TypeScript types:
+
+  * `NetworkProviders.ts` – Defines supported providers
+  * `transaction.ts` – Describes transaction structure and states
+
+---
+
+## Public Assets
+
+All static files are located in the `public/` folder, including icons and logos:
 
 ```bash
-# Run unit tests
-pnpm run test
-
-# Run e2e tests
-pnpm run test:e2e
-
-# Test coverage
-pnpm run test:cov
+public/
+├── logo.svg
+├── globe.svg
+├── next.svg
+├── vercel.svg
+├── window.svg
+└── file.svg
 ```
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-Contributions, issues, and feature requests are welcome!
-Fork the repo, open a PR, or raise an issue.
+1. Clone the monorepo
+2. Create a new branch:
+
+   ```bash
+   git checkout -b feat/your-feature-name
+   ```
+
+3. Run linter and verify your changes:
+
+   ```bash
+   pnpm --filter frontend lint
+   ```
+
+4. Commit using [Conventional Commits](https://www.conventionalcommits.org/):
+
+   ```bash
+   feat: add new electricity payment component
+   ```
+
+5. Submit a pull request for review.
 
 ---
 
-## 📜 License
+### Notes
 
-This project is licensed under the **MIT License**.
+* The frontend is tightly coupled with the backend service for validation and payment processing.
+* Shared development and build scripts are defined in the root `package.json` of the pnpm workspace.
+* Use environment variables (if applicable) via `.env.local` for backend API endpoints or tokens.

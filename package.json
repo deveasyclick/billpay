@@ -1,5 +1,5 @@
 {
-  "name": "billpay",
+  "name": "billpay-frontend",
   "private": true,
   "version": "1.0.0",
   "description": "Billpay monorepo (frontend + backend)",

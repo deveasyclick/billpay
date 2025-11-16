@@ -11,6 +11,7 @@ import configuration from './config/configuration';
 import { BillsModule } from './modules/bills/bills.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
+import { PaymentModule } from './modules/payment/payment.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { PrismaModule } from './modules/prisma/prisma.module';
       validate: validateConfig,
     }),
     BillsModule,
+    PaymentModule,
   ],
   controllers: [],
   providers: [AppService, AppResolver],

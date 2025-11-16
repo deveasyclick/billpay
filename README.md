@@ -1,3 +1,6 @@
+<img width="1359" height="771" alt="image" src="https://github.com/user-attachments/assets/2ff56d60-d69e-4040-a719-12cffefa422b" />
+
+
 # 🧾 Billpay
 
 The **Billpay** monorepo powers a complete **bill payment platform** consisting of:

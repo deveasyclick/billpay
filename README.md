@@ -3,7 +3,7 @@
 
 # 🧾 Billpay
 
-url: [Billpay](https://billspay.vercel.app/)
+Link: [Billpay](https://billspay.vercel.app/)
 
 The **Billpay** monorepo powers a complete **bill payment platform** consisting of:
 

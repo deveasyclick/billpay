@@ -72,7 +72,7 @@ export default function TVBundle({ form, items }: Props) {
               <SelectContent>
                 {packages.map((p) => (
                   <SelectItem key={p.internalCode} value={p.internalCode}>
-                    {`${p.name} (₦${Math.round(p.amount / 100)})`}
+                    {`${p.name} (₦${Math.round(p.amount)})`}
                   </SelectItem>
                 ))}
               </SelectContent>

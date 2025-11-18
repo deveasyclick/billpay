@@ -18,10 +18,24 @@ import { useBillingItems } from "@/lib/context/itemContext";
 import { usePayment } from "@/lib/context/payment";
 import { toast } from "sonner";
 import { Category } from "@/types";
+import { useValidateCustomer } from "../../../../queries/validate-customer";
+import { Check } from "lucide-react";
+import { useEffect } from "react";
 
 export default function TVTab() {
   const { tvItems } = useBillingItems();
-  const { payBill } = usePayment();
+  const { payBill, status } = usePayment();
+  const {
+    mutate: validateCustomer,
+    isPending,
+    isSuccess,
+    isError,
+    error,
+    isIdle,
+    data,
+    reset,
+  } = useValidateCustomer();
+
   const form = useForm<TVFormValues>({
     resolver: zodResolver(TVSchema),
     defaultValues: {
@@ -32,12 +46,39 @@ export default function TVTab() {
     mode: "onChange",
   });
 
+  useEffect(() => {
+    if (status === "success") {
+      toast.success("Payment successful!");
+      form.reset();
+      reset();
+    } else if (status === "error") {
+      toast.error("Payment failed!");
+    }
+  }, [status, form, reset]);
+
+  useEffect(() => {
+    if (isError) {
+      form.setError("smartCardNumber", {
+        message: error?.message ?? "Validation failed",
+      });
+    }
+  }, [isError, error, form]);
   const onSubmit = (data: TVFormValues) => {
     console.log("data", data);
     const item = tvItems.find((item) => item.internalCode === data.package);
     if (!item) {
       toast.error("Payment failed. Please try again later.");
       throw new Error("Item not found");
+    }
+
+    if (isIdle || !isSuccess) {
+      form.clearErrors("smartCardNumber");
+      validateCustomer({
+        customerId: data.smartCardNumber,
+        paymentCode: item.biller.billerId,
+        provider: item.provider.name,
+      });
+      return;
     }
 
     payBill({
@@ -62,13 +103,31 @@ export default function TVTab() {
                   Smart Card Number
                 </FormLabel>
                 <FormControl>
-                  <BillInput {...field} placeholder="Enter smart card number" />
+                  <BillInput
+                    {...field}
+                    placeholder="Enter smart card number"
+                    onChange={(e) => {
+                      field.onChange(e);
+                      reset();
+                    }}
+                  />
                 </FormControl>
+                {isSuccess && (
+                  <span className="text-blue-700 flex gap-1 text-[13px] items-center">
+                    <Check className="w-4 h-4" />
+                    {data.FullName}
+                  </span>
+                )}
+                {isPending && (
+                  <span className="text-orange-500 flex gap-2 text-xs">
+                    Validating...
+                  </span>
+                )}
                 <FormMessage />
               </FormItem>
             )}
           />
-          <PaymentButton disabled={!form.formState.isValid} />
+          <PaymentButton disabled={isPending || isError} />
         </form>
       </Form>
     </div>

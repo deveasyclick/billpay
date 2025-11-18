@@ -458,32 +458,7 @@ export class BillsService {
       return this.billRepo.findItemsByProvider(provider.id);
     }
 
-    const categories = await this.billRepo.findCategories();
-    const vtpassItemIds = categories
-      .filter(
-        (c) =>
-          c.name === BillCategory.AIRTIME ||
-          c.name === BillCategory.DATA ||
-          c.name === BillCategory.ELECTRICITY,
-      )
-      .map((c) => c.id);
-    const interswitchItemIds = categories
-      .filter(
-        (c) =>
-          c.name !== BillCategory.AIRTIME &&
-          c.name !== BillCategory.DATA &&
-          c.name !== BillCategory.ELECTRICITY,
-      )
-      .map((c) => c.id);
-
-    const res = await Promise.all([
-      this.billRepo.findItemsByProvider(vtpassProvider.id, vtpassItemIds),
-      this.billRepo.findItemsByProvider(
-        interswitchProvider.id,
-        interswitchItemIds,
-      ),
-    ]);
-    return res.flat();
+    return this.billRepo.findItemsByProvider(vtpassProvider.id);
   }
 
   // TODO: create a script to run this. Currently running it inside onModuleInit. Must run once on app startup

@@ -18,6 +18,10 @@ import { BillsService } from './bills.service';
 import { PayBillDTO, PayBillResponseDTO } from './dtos/payment';
 import { GetBillingItemsResponseDto } from './dtos/item';
 import { cast } from 'src/common/utils/cast';
+import {
+  ValidateCustomerDTO,
+  ValidateCustomerResponseDTO,
+} from './dtos/validate-customer';
 
 @Controller('bills')
 @ApiTags('Bills')
@@ -67,5 +71,29 @@ export class BillsController {
         image: i.image,
       })),
     };
+  }
+
+  @Post('validate-customer')
+  @ApiOperation({ summary: 'Validate customer info' })
+  @ApiBody({ type: ValidateCustomerDTO })
+  @ApiOkResponse({ type: ValidateCustomerDTO })
+  async validateCustomerV2(
+    @Body() dto: ValidateCustomerDTO,
+  ): Promise<ValidateCustomerResponseDTO> {
+    try {
+      const res = await this.billsService.validateCustomer(dto);
+      return {
+        statusCode: 200,
+        message: 'Success',
+        data: res,
+      };
+    } catch (err) {
+      const error = err?.response?.data ?? err;
+      this.logger.error('err', error);
+      throw new InternalServerErrorException({
+        message: 'Customer validation failed',
+        details: error,
+      });
+    }
   }
 }

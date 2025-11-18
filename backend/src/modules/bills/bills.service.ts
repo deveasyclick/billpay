@@ -18,15 +18,13 @@ import {
 } from '@prisma/client';
 import { VTPassPayPayload } from 'src/common/types/vtpass';
 import { InterSwitchService } from 'src/integration/interswitch/interswitch.service';
-import type {
-  PayResponse,
-  ValidateCustomersResponse,
-} from 'src/integration/interswitch/types';
+import type { Customer, PayResponse } from 'src/integration/interswitch/types';
 import { VTPassService } from 'src/integration/vtpass/vtpass.service';
 import { PaymentService } from '../payment/payment.service';
 import { QueueService } from '../queue/queue.service';
 import { BillRepository } from './bill.repository';
 import type { PayBillDTO } from './dtos/payment';
+import { ValidateCustomerDTO } from './dtos/validate-customer';
 
 @Injectable()
 export class BillsService {
@@ -650,5 +648,38 @@ export class BillsService {
     ]);
 
     this.logger.log('Providers and categories seeded successfully');
+  }
+
+  public async validateCustomer({
+    customerId,
+    paymentCode,
+    provider,
+    type,
+  }: ValidateCustomerDTO): Promise<Customer> {
+    if (provider === Providers.VTPASS) {
+      const response = await this.vtpassService.validateCustomer({
+        billersCode: customerId,
+        serviceID: paymentCode,
+        ...(type && { type }),
+      });
+      return {
+        TerminalId: '',
+        BillerId: 0,
+        PaymentCode: paymentCode,
+        CustomerId: customerId,
+        FullName: response.Customer_Name,
+        Amount: response.commission_details.amount ?? 0,
+        AmountType: 0,
+        AmountTypeDescription: '',
+        Surcharge: 0,
+        ResponseCode: '000',
+      };
+    }
+
+    const response = await this.interswitchService.validateCustomer(
+      customerId,
+      paymentCode,
+    );
+    return response.Customers?.[0] ?? {};
   }
 }

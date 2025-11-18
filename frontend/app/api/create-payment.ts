@@ -4,7 +4,7 @@ import type { CreatePaymentRequest, CreatePaymentResponse } from "@/types";
 export async function CreatePayment(
   createPaymentObject: CreatePaymentRequest
 ): Promise<CreatePaymentResponse["data"]> {
-  const res = await fetch(`${env.apiBaseUrl}/coin/payment/create`, {
+  const res = await fetch(`${env.apiBaseUrl}/payments`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

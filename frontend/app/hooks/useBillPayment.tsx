@@ -1,10 +1,10 @@
+import { env } from "@/lib/env";
+import type { Category, PayBillResponse, Providers } from "@/types";
+import type { InterSwitchCheckoutResponse } from "@/types/checkout";
+import { useState } from "react";
 import { toast } from "sonner";
 import { useCreatePayment } from "../../queries/create-payment";
-import type { Category, PayBillResponse, Providers } from "@/types";
-import { env } from "@/lib/env";
-import type { InterSwitchCheckoutResponse } from "@/types/checkout";
 import { usePayBillQuery } from "../../queries/pay-bill";
-import { useState } from "react";
 
 type CheckoutOptions = {
   amount: number; // in minor units
@@ -50,7 +50,7 @@ export default function useBillPayment() {
 
       //validateAmount(options.amount, options.amountType);
       window.webpayCheckout({
-        amount: payment.amount,
+        amount: payment.amount * 100,
         currency: 566, // NGN
         site_redirect_url: `${window.location.origin}${site_redirect_path}`,
         cust_id: customerId,
@@ -66,7 +66,6 @@ export default function useBillPayment() {
             return;
           }
           if (resp.resp === "00") {
-            // TODO: pay bill here
             const result = await payBill({
               paymentReference: payment.paymentReference,
               billingItemId,

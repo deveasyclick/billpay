@@ -26,10 +26,23 @@ import ElectricitySummary from "./components/ElectricitySummary";
 import { ElectricityFormValues, ElectricitySchema } from "./electricity.schema";
 import { toast } from "sonner";
 import { Category } from "@/types";
+import { useValidateCustomer } from "../../../../queries/validate-customer";
+import { Check } from "lucide-react";
+import { useEffect } from "react";
 
 export default function Electricity() {
   const { electricityItems } = useBillingItems();
-  const { payBill } = usePayment();
+  const {
+    mutate: validateCustomer,
+    isPending,
+    isSuccess,
+    isError,
+    error,
+    isIdle,
+    data,
+    reset,
+  } = useValidateCustomer();
+  const { payBill, status } = usePayment();
 
   const form = useForm<ElectricityFormValues>({
     resolver: zodResolver(ElectricitySchema),
@@ -41,19 +54,46 @@ export default function Electricity() {
     },
   });
 
-  const onSubmit = (electricity: ElectricityFormValues) => {
+  useEffect(() => {
+    if (status === "success") {
+      toast.success("Payment successful!");
+      form.reset();
+      reset();
+    } else if (status === "error") {
+      toast.error("Payment failed!");
+    }
+  }, [status, form, reset]);
+
+  useEffect(() => {
+    if (isError) {
+      form.setError("meterNumber", {
+        message: error?.message ?? "Validation failed",
+      });
+    }
+  }, [isError, error, form]);
+  const onSubmit = (data: ElectricityFormValues) => {
     const item = electricityItems.find(
-      (item) => item.internalCode === electricity.provider
+      (item) => item.internalCode === data.provider
     );
     if (!item) {
       toast.error("Payment failed. Please try again later.");
       throw new Error("Item not found");
     }
 
+    if (isIdle || !isSuccess) {
+      form.clearErrors("meterNumber");
+      validateCustomer({
+        customerId: data.meterNumber,
+        paymentCode: item.biller.billerId,
+        provider: item.provider.name,
+      });
+      return;
+    }
+
     payBill({
-      amount: Number(item.amount),
+      amount: Number(data.amount),
       billingItemId: item.id,
-      customerId: electricity.meterNumber,
+      customerId: data.meterNumber,
       category: Category.ELECTRICITY,
     });
   };
@@ -163,8 +203,26 @@ export default function Electricity() {
                   Meter Number
                 </FormLabel>
                 <FormControl>
-                  <BillInput {...field} placeholder="Enter meter's number" />
+                  <BillInput
+                    {...field}
+                    placeholder="Enter meter's number"
+                    onChange={(e) => {
+                      field.onChange(e);
+                      reset();
+                    }}
+                  />
                 </FormControl>
+                {isSuccess && (
+                  <span className="text-blue-700 flex gap-1 text-[13px] items-center">
+                    <Check className="w-4 h-4" />
+                    {data.FullName}
+                  </span>
+                )}
+                {isPending && (
+                  <span className="text-orange-500 flex gap-2 text-xs">
+                    Validating...
+                  </span>
+                )}
                 <FormMessage />
               </FormItem>
             )}
@@ -177,7 +235,7 @@ export default function Electricity() {
           <ElectricitySummary meterNumber={meterNumber} amount={amount} />
 
           {/* Submit */}
-          <PaymentButton disabled={!form.formState.isValid} />
+          <PaymentButton disabled={isPending || isError} />
         </form>
       </Form>
     </div>

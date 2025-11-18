@@ -126,4 +126,29 @@ export class BillRepository {
     }
     return results;
   }
+
+  async upsertMany<T extends { name: string }>(
+    model: keyof PrismaService,
+    data: T[],
+  ) {
+    const repo = (this.prisma as any)[model];
+
+    await Promise.all(
+      data.map((item) =>
+        repo.upsert({
+          where: { name: item.name },
+          update: {},
+          create: item,
+        }),
+      ),
+    );
+  }
+
+  async upsertProviders(providers: any[]) {
+    return this.upsertMany('billingProvider', providers);
+  }
+
+  async upsertCategories(categories: any[]) {
+    return this.upsertMany('billingCategory', categories);
+  }
 }

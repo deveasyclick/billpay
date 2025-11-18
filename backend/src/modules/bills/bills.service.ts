@@ -1,4 +1,3 @@
-import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
   BadRequestException,
   ConflictException,
@@ -28,8 +27,6 @@ import { PaymentService } from '../payment/payment.service';
 import { QueueService } from '../queue/queue.service';
 import { BillRepository } from './bill.repository';
 import type { PayBillDTO } from './dtos/payment';
-import type { BillerItem } from 'src/common/types/billerItem';
-import { SUPPORTED_BILL_ITEMS } from 'src/integration/interswitch/interswitch.constants';
 
 @Injectable()
 export class BillsService {
@@ -546,6 +543,9 @@ export class BillsService {
   // TODO: create a script to run this. Currently running it inside onModuleInit. Must run once on app startup
   // TODO: Fix duplicates
   public async syncPlansToDB() {
+    // First, ensure providers and categories exist (seed if necessary)
+    await this.ensureProvidersAndCategories();
+
     const [categories, providers] = await Promise.all([
       this.billRepo.findCategories(),
       this.billRepo.findActiveProviders(),
@@ -626,5 +626,29 @@ export class BillsService {
 
     await this.billRepo.bulkUpsertItems(vtpassProvider.id, vtpassItems);
     this.logger.log(`${vtpassItems.length} vtpass items synced successfully`);
+  }
+
+  private async ensureProvidersAndCategories() {
+    this.logger.log('Ensuring providers and categories exist in database');
+
+    const providersData = [
+      { name: Providers.INTERSWITCH, isActive: true },
+      { name: Providers.VTPASS, isActive: true },
+    ];
+
+    const categoriesData = [
+      { name: BillCategory.AIRTIME, dynamic: false },
+      { name: BillCategory.ELECTRICITY, dynamic: false },
+      { name: BillCategory.GAMING, dynamic: false },
+      { name: BillCategory.DATA, dynamic: true },
+      { name: BillCategory.TV, dynamic: true },
+    ];
+
+    await Promise.all([
+      this.billRepo.upsertProviders(providersData),
+      this.billRepo.upsertCategories(categoriesData),
+    ]);
+
+    this.logger.log('Providers and categories seeded successfully');
   }
 }

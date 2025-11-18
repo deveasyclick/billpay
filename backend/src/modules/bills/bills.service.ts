@@ -512,9 +512,7 @@ export class BillsService {
       return this.billRepo.findItemsByProvider(provider.id);
     }
 
-    const categories = await this.billRepo.findCategories();
-    const vtpassItemIds = categories.map((c) => c.id);
-    return this.billRepo.findItemsByProvider(vtpassProvider.id, vtpassItemIds);
+    return this.billRepo.findItemsByProvider(vtpassProvider.id);
   }
 
   // TODO: create a script to run this. Currently running it inside onModuleInit. Must run once on app startup

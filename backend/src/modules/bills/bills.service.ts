@@ -38,61 +38,9 @@ export class BillsService {
     private readonly queueService: QueueService,
   ) {}
 
-  async onModuleInit() {
-    await this.syncPlansToDB();
-  }
-  /**
-   * 🔹 Validate customer & amount
-   */
-  private async validateCustomerOrThrow(
-    customerId: string,
-    paymentCode: string,
-    amount: number,
-  ): Promise<ValidateCustomersResponse> {
-    const response = await this.interswitchService.validateCustomer(
-      customerId,
-      paymentCode,
-    );
-
-    const customer = response.Customers?.[0];
-    if (!customer) {
-      throw new BadRequestException('Customer validation failed');
-    }
-
-    if (
-      !this.validateAmount(
-        amount,
-        Math.round(customer.Amount),
-        customer.AmountType,
-      )
-    ) {
-      throw new BadRequestException(
-        `Invalid amount. Expected rule ${customer.AmountTypeDescription ?? 'per biller rules'}`,
-      );
-    }
-
-    return response;
-  }
-
-  /**
-   * 🔹 Amount validation helper
-   */
-  private validateAmount(
-    userAmount: number,
-    requiredAmount: number,
-    type: number,
-  ): boolean {
-    const rules: Record<number, () => boolean> = {
-      0: () => true, // None
-      1: () => userAmount >= requiredAmount, // Minimum
-      2: () => userAmount > requiredAmount, // Greater than Minimum
-      3: () => userAmount <= requiredAmount, // Maximum
-      4: () => userAmount < requiredAmount, // Less than Maximum
-      5: () => userAmount === requiredAmount, // Exact
-    };
-
-    return rules[type]?.() ?? false;
-  }
+  // async onModuleInit() {
+  //   await this.syncPlansToDB();
+  // }
 
   private buildVtpassPayload(
     category: BillCategory,

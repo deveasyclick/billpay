@@ -1,3 +1,4 @@
+import { useState } from "react";
 
 const interswitchTestCards = [
   { number: "5061050254756707864", label: "Verve – Success" },
@@ -19,8 +20,20 @@ const labelColors: Record<string, string> = {
 };
 
 export default function Sidebar() {
+  const [copiedCard, setCopiedCard] = useState<string | null>(null);
+
+  const handleCopy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedCard(text);
+      setTimeout(() => setCopiedCard(null), 1500);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
+
   return (
-    <aside className="space-y-4 bg-gray-100 dark:bg-gray-900 p-4 rounded shadow">
+    <aside className="space-y-4  p-4">
       <h3 className="font-bold text-lg mb-2">Test Cards</h3>
       <div className="flex flex-col gap-2">
         {interswitchTestCards.map((card) => {
@@ -30,14 +43,50 @@ export default function Sidebar() {
             if (card.label.includes(key)) colorClass = labelColors[key];
           }
 
+          const isCopied = copiedCard === card.number;
+
           return (
-            <button
+            <div
               key={card.number}
-              type="button"
-              className={`px-3 py-2 rounded text-sm cursor-pointer ${colorClass}`}
+              onClick={() => handleCopy(card.number)}
+              className={`px-3 py-2 rounded text-sm flex justify-between items-center cursor-pointer ${colorClass}`}
+              title="Click to copy"
             >
-              {card.label}: {card.number} 
-            </button>
+              <span>
+                {card.label}: {card.number}
+              </span>
+              {isCopied ? (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-4 h-4 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-4 h-4 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m0 4h2a2 2 0 012 2v6a2 2 0 01-2 2h-8a2 2 0 01-2-2v-6a2 2 0 012-2h2z"
+                  />
+                </svg>
+              )}
+            </div>
           );
         })}
       </div>

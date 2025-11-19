@@ -92,15 +92,17 @@ export default function Sidebar() {
             <div
               key={card.number}
               onClick={() => handleCopy(card.number)}
-              className={`px-3 py-2 rounded text-sm flex flex-col gap-1 cursor-pointer ${colorClass}`}
+              className={`p-2 rounded flex flex-col gap-0.5 cursor-pointer transition-colors ${colorClass}`}
               title="Click to copy card number"
             >
-              <div className="flex justify-between items-start">
-                <span className="font-bold">{card.label}</span>
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-xs truncate pr-2">
+                  {card.label}
+                </span>
                 {isCopied ? (
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="w-4 h-4 text-white shrink-0"
+                    className="w-3 h-3 text-white shrink-0"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -115,7 +117,7 @@ export default function Sidebar() {
                 ) : (
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="w-4 h-4 text-white shrink-0 opacity-70"
+                    className="w-3 h-3 text-white shrink-0 opacity-60"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -129,16 +131,16 @@ export default function Sidebar() {
                   </svg>
                 )}
               </div>
-              <div className="text-xs space-y-0.5 opacity-90">
-                <div>PAN: {card.number}</div>
-                <div className="flex gap-3">
-                  <span>Exp: {card.expiry}</span>
-                  <span>CVV: {card.cvv}</span>
-                </div>
-                <div className="flex gap-3">
-                  <span>PIN: {card.pin}</span>
-                  {card.otp && <span>OTP: {card.otp}</span>}
-                </div>
+
+              <div className="text-xs font-mono opacity-95 truncate">
+                {card.number}
+              </div>
+
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] opacity-80 leading-tight">
+                <span>Exp: {card.expiry}</span>
+                <span>CVV: {card.cvv}</span>
+                <span>PIN: {card.pin}</span>
+                {card.otp && <span>OTP: {card.otp}</span>}
               </div>
             </div>
           );

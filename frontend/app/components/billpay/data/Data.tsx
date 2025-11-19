@@ -66,7 +66,12 @@ export default function DataTab() {
     <div className="w-full max-w-lg bg-white dark:bg-gray-900">
       <TestCodes
         testCodes={DATA_TEST_NUMBERS}
-        onSelect={(number) => form.setValue("phone", number)}
+        onSelect={(number) =>
+          form.setValue("phone", number, {
+            shouldValidate: true,
+            shouldDirty: true,
+          })
+        }
       />
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">

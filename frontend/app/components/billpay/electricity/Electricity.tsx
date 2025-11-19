@@ -114,7 +114,12 @@ export default function Electricity() {
     <div className="w-full max-w-lg bg-white dark:bg-gray-900">
       <TestCodes
         testCodes={ELECTRICITY_TEST_CODES}
-        onSelect={(number) => form.setValue("meterNumber", number)}
+        onSelect={(number) =>
+          form.setValue("meterNumber", number, {
+            shouldValidate: true,
+            shouldDirty: true,
+          })
+        }
       />
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">

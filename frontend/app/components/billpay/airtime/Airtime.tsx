@@ -63,7 +63,12 @@ export default function Airtime() {
     <div className="w-full max-w-lg bg-white dark:bg-gray-900">
       <TestCodes
         testCodes={AIRTIME_TEST_NUMBERS}
-        onSelect={(number) => form.setValue("phone", number)}
+        onSelect={(number) =>
+          form.setValue("phone", number, {
+            shouldValidate: true,
+            shouldDirty: true,
+          })
+        }
       />
 
       <Form {...form}>

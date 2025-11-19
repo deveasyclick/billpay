@@ -21,7 +21,15 @@ import { Category } from "@/types";
 import { useValidateCustomer } from "../../../../queries/validate-customer";
 import { Check } from "lucide-react";
 import { useEffect } from "react";
+import TestCodes from "@/components/TestCodes";
 
+const TV_TEST_CODES = [
+  { number: "1212121212", label: "Success" },
+  { number: "201000000000", label: "Pending" },
+  { number: "400000000000", label: "No Response" },
+  { number: "300000000000", label: "Timeout" },
+  { number: "500000000000", label: "Unexpected Response" },
+];
 export default function TVTab() {
   const { tvItems } = useBillingItems();
   const { payBill, status } = usePayment();
@@ -91,6 +99,11 @@ export default function TVTab() {
 
   return (
     <div className="w-full max-w-lg bg-white dark:bg-gray-900">
+      <TestCodes
+        testCodes={TV_TEST_CODES}
+        onSelect={(number) => form.setValue("smartCardNumber", number)}
+      />
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <TVBundle form={form} items={tvItems} />

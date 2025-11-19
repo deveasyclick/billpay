@@ -12,6 +12,15 @@ import { useEffect, useState } from "react";
 import { Category, type BillingItem } from "@/types";
 import { usePayment } from "@/lib/context/payment";
 import { toast } from "sonner";
+import TestCodes from "@/components/TestCodes";
+
+const DATA_TEST_NUMBERS = [
+  { number: "08011111111", label: "Success" },
+  { number: "201000000000", label: "Pending" },
+  { number: "400000000000", label: "No Response" },
+  { number: "300000000000", label: "Timeout" },
+  { number: "500000000000", label: "Unexpected Response" },
+];
 
 export default function DataTab() {
   const [bundleItems, setBundleItems] = useState<BillingItem[]>([]);
@@ -55,6 +64,10 @@ export default function DataTab() {
 
   return (
     <div className="w-full max-w-lg bg-white dark:bg-gray-900">
+      <TestCodes
+        testCodes={DATA_TEST_NUMBERS}
+        onSelect={(number) => form.setValue("phone", number)}
+      />
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <NetworkAndPhone form={form} />

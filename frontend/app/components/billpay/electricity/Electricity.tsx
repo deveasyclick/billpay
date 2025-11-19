@@ -29,7 +29,16 @@ import { Category } from "@/types";
 import { useValidateCustomer } from "../../../../queries/validate-customer";
 import { Check } from "lucide-react";
 import { useEffect } from "react";
+import TestCodes from "@/components/TestCodes";
 
+const ELECTRICITY_TEST_CODES = [
+  { number: "1111111111111", label: "Success", description: "Prepaid" },
+  { number: "1010101010101", label: "Success", description: "Postpaid" },
+  { number: "201000000000", label: "Pending" },
+  { number: "400000000000", label: "No Response" },
+  { number: "300000000000", label: "Timeout" },
+  { number: "500000000000", label: "Unexpected Response" },
+];
 export default function Electricity() {
   const { electricityItems } = useBillingItems();
   const {
@@ -103,6 +112,10 @@ export default function Electricity() {
 
   return (
     <div className="w-full max-w-lg bg-white dark:bg-gray-900">
+      <TestCodes
+        testCodes={ELECTRICITY_TEST_CODES}
+        onSelect={(number) => form.setValue("meterNumber", number)}
+      />
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <FormField

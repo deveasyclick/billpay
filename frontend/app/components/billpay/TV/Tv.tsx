@@ -101,7 +101,12 @@ export default function TVTab() {
     <div className="w-full max-w-lg bg-white dark:bg-gray-900">
       <TestCodes
         testCodes={TV_TEST_CODES}
-        onSelect={(number) => form.setValue("smartCardNumber", number)}
+        onSelect={(number) =>
+          form.setValue("smartCardNumber", number, {
+            shouldValidate: true,
+            shouldDirty: true,
+          })
+        }
       />
 
       <Form {...form}>

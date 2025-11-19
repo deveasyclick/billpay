@@ -1,0 +1,89 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  frontend-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.base_ref }} --depth=1
+
+      - name: Check for frontend changes
+        id: frontend-changes
+        run: |
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -qE '^(frontend/|package.json|pnpm-lock.yaml|pnpm-workspace.yaml)'; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install pnpm
+        if: ${{ steps.frontend-changes.outputs.changed == 'true' }}
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        if: ${{ steps.frontend-changes.outputs.changed == 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        if: ${{ steps.frontend-changes.outputs.changed == 'true' }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Frontend
+        if: ${{ steps.frontend-changes.outputs.changed == 'true' }}
+        run: pnpm -F frontend build
+
+  backend-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.base_ref }} --depth=1
+
+      - name: Check for backend changes
+        id: backend-changes
+        run: |
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -qE '^(backend/|package.json|pnpm-lock.yaml|pnpm-workspace.yaml)'; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install pnpm
+        if: ${{ steps.backend-changes.outputs.changed == 'true' }}
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        if: ${{ steps.backend-changes.outputs.changed == 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        if: ${{ steps.backend-changes.outputs.changed == 'true' }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Backend
+        if: ${{ steps.backend-changes.outputs.changed == 'true' }}
+        run: pnpm -F backend build

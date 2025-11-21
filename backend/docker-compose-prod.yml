@@ -1,0 +1,12 @@
+backend:
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+  ports:
+    - "3000:3000"
+  env_file:
+    - backend/.env
+  depends_on:
+    - postgres
+  networks:
+    - billpay

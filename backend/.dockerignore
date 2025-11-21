@@ -1,5 +1,25 @@
-dist/
+# Backend build artifacts
+backend/dist/
+backend/node_modules/
+backend/logs/
+
+# Frontend (not needed for backend image)
+frontend/
+
+# Root level
 node_modules/
+.git/
+.github/
+
+# Documentation
 *.md
-logs/
+!backend/README.md
+
+# Environment files
 .env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/

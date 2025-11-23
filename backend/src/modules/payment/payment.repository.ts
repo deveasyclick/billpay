@@ -137,7 +137,7 @@ export class PaymentRepository {
     id: string,
     data: Pick<
       Prisma.PaymentAttemptUncheckedCreateInput,
-      'status' | 'requestPayload' | 'errorMessage'
+      'status' | 'responsePayload' | 'errorMessage'
     >,
   ) {
     return this.prisma.paymentAttempt.update({
@@ -145,6 +145,15 @@ export class PaymentRepository {
       data: {
         ...data,
         completedAt: new Date(),
+      },
+    });
+  }
+
+  public async findPaymentAttemptById(id: string) {
+    return this.prisma.paymentAttempt.findUnique({
+      where: { id },
+      include: {
+        provider: true,
       },
     });
   }

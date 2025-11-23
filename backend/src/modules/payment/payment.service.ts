@@ -97,4 +97,8 @@ export class PaymentService {
   ) {
     return this.paymentRepo.findPayment(data, tx);
   }
+
+  public async findPaymentAttemptById(id: string) {
+    return this.paymentRepo.findPaymentAttemptById(id);
+  }
 }

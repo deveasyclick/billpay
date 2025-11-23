@@ -5,7 +5,7 @@ import { Logger } from '@nestjs/common';
 import { PaymentService } from './payment.service';
 import { InterSwitchService } from 'src/integration/interswitch/interswitch.service';
 import { VTPassService } from 'src/integration/vtpass/vtpass.service';
-import { AttemptStatus, PaymentStatus } from '@prisma/client';
+import { AttemptStatus, PaymentStatus, Providers } from '@prisma/client';
 
 @Processor(QUEUE_NAMES.PAYMENT)
 export class PaymentConsumer extends WorkerHost {
@@ -37,11 +37,11 @@ export class PaymentConsumer extends WorkerHost {
 
   /**
    * Reconciles a pending payment by checking its status with the provider
-   * @param data - Contains paymentRef and optional attemptId
+   * @param data - Contains paymentRef and attemptId
    */
   private async reconcilePayment(data: {
     paymentRef: string;
-    attemptId?: string;
+    attemptId: string;
   }) {
     const { paymentRef, attemptId } = data;
     this.logger.log(`Reconciling payment: ${paymentRef}`);
@@ -67,87 +67,110 @@ export class PaymentConsumer extends WorkerHost {
         return;
       }
 
-      // Determine which provider to query based on the last attempt or payment metadata
-      // For now, we'll try both providers (Interswitch first, then VTPass)
-      let reconciled = false;
+      // Fetch the payment attempt to determine which provider to query
+      const attempt =
+        await this.paymentService.findPaymentAttemptById(attemptId);
 
-      // Try Interswitch
-      try {
-        const interswitchResult =
-          await this.interswitchService.confirmTransaction(paymentRef);
+      if (!attempt) {
+        this.logger.warn(`Payment attempt not found: ${attemptId}`);
+        return;
+      }
 
-        if (interswitchResult.ResponseCodeGrouping === 'SUCCESSFUL') {
-          await this.updatePaymentSuccess(
-            payment.id,
-            attemptId,
-            interswitchResult,
-          );
-          this.logger.log(
-            `✅ Payment ${paymentRef} reconciled successfully via Interswitch`,
-          );
-          reconciled = true;
-        } else if (interswitchResult.ResponseCodeGrouping === 'FAILED') {
-          await this.updatePaymentFailed(
-            payment.id,
-            attemptId,
-            interswitchResult,
-          );
-          this.logger.log(
-            `❌ Payment ${paymentRef} marked as failed via Interswitch`,
-          );
-          reconciled = true;
-        }
-      } catch (interswitchError) {
-        this.logger.debug(
-          `Interswitch reconciliation failed for ${paymentRef}`,
-          interswitchError?.response?.data ?? interswitchError?.message,
+      const providerName = attempt.provider.name;
+      this.logger.log(
+        `Reconciling with provider: ${providerName} for payment ${paymentRef}`,
+      );
+
+      // Query the specific provider based on the attempt
+      if (providerName === Providers.INTERSWITCH) {
+        await this.reconcileWithInterswitch(payment.id, paymentRef, attemptId);
+      } else if (providerName === Providers.VTPASS) {
+        await this.reconcileWithVTPass(payment.id, paymentRef, attemptId);
+      } else {
+        this.logger.warn(`Unknown provider: ${providerName}`);
+        throw new Error(`Unsupported provider: ${providerName}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error reconciling paymentRef=${paymentRef}, attemptId=${attemptId}`,
+        error?.stack ?? error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Reconciles payment with Interswitch
+   */
+  private async reconcileWithInterswitch(
+    paymentId: string,
+    paymentRef: string,
+    attemptId: string,
+  ) {
+    try {
+      const result =
+        await this.interswitchService.confirmTransaction(paymentRef);
+
+      if (result.ResponseCodeGrouping === 'SUCCESSFUL') {
+        await this.updatePaymentSuccess(paymentId, attemptId, result);
+        this.logger.log(
+          `✅ Payment ${paymentRef} reconciled successfully via Interswitch`,
         );
-      }
-
-      // If Interswitch didn't reconcile, try VTPass
-      if (!reconciled) {
-        try {
-          const vtpassResult =
-            await this.vtpassService.getTransaction(paymentRef);
-
-          if (vtpassResult.status === 'delivered') {
-            await this.updatePaymentSuccess(
-              payment.id,
-              attemptId,
-              vtpassResult,
-            );
-            this.logger.log(
-              `✅ Payment ${paymentRef} reconciled successfully via VTPass`,
-            );
-            reconciled = true;
-          } else if (vtpassResult.status === 'failed') {
-            await this.updatePaymentFailed(payment.id, attemptId, vtpassResult);
-            this.logger.log(
-              `❌ Payment ${paymentRef} marked as failed via VTPass`,
-            );
-            reconciled = true;
-          }
-        } catch (vtpassError) {
-          this.logger.debug(
-            `VTPass reconciliation failed for ${paymentRef}`,
-            vtpassError?.response?.data ?? vtpassError?.message,
-          );
-        }
-      }
-
-      if (!reconciled) {
+      } else if (result.ResponseCodeGrouping === 'FAILED') {
+        await this.updatePaymentFailed(paymentId, attemptId, result);
+        this.logger.log(
+          `❌ Payment ${paymentRef} marked as failed via Interswitch`,
+        );
+      } else {
+        // Still pending
         this.logger.warn(
-          `Payment ${paymentRef} still pending after reconciliation attempt`,
+          `Payment ${paymentRef} still pending on Interswitch: ${result.ResponseCodeGrouping}`,
         );
-        // The job will be retried based on the queue configuration
         throw new Error(
-          `Unable to reconcile payment ${paymentRef} - still pending`,
+          `Payment ${paymentRef} still pending - will retry later`,
         );
       }
     } catch (error) {
       this.logger.error(
-        `Error reconciling payment ${paymentRef}`,
-        error?.stack ?? error,
+        `Interswitch reconciliation failed for ${paymentRef}`,
+        error?.response?.data ?? error?.message,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Reconciles payment with VTPass
+   */
+  private async reconcileWithVTPass(
+    paymentId: string,
+    paymentRef: string,
+    attemptId: string,
+  ) {
+    try {
+      const result = await this.vtpassService.getTransaction(paymentRef);
+
+      if (result.status === 'delivered') {
+        await this.updatePaymentSuccess(paymentId, attemptId, result);
+        this.logger.log(
+          `✅ Payment ${paymentRef} reconciled successfully via VTPass`,
+        );
+      } else if (result.status === 'failed') {
+        await this.updatePaymentFailed(paymentId, attemptId, result);
+        this.logger.log(`❌ Payment ${paymentRef} marked as failed via VTPass`);
+      } else {
+        // Still pending
+        this.logger.warn(
+          `Payment ${paymentRef} still pending on VTPass: ${result.status}`,
+        );
+        throw new Error(
+          `Payment ${paymentRef} still pending - will retry later`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `VTPass reconciliation failed for ${paymentRef}`,
+        error?.response?.data ?? error?.message,
       );
       throw error;
     }
@@ -158,7 +181,7 @@ export class PaymentConsumer extends WorkerHost {
    */
   private async updatePaymentSuccess(
     paymentId: string,
-    attemptId: string | undefined,
+    attemptId: string,
     providerResponse: any,
   ) {
     await this.paymentService.updatePayment(paymentId, {
@@ -166,12 +189,10 @@ export class PaymentConsumer extends WorkerHost {
       completedAt: new Date(),
     });
 
-    if (attemptId) {
-      await this.paymentService.updatePaymentAttempt(attemptId, {
-        status: AttemptStatus.SUCCESS,
-        responsePayload: JSON.stringify(providerResponse),
-      });
-    }
+    await this.paymentService.updatePaymentAttempt(attemptId, {
+      status: AttemptStatus.SUCCESS,
+      responsePayload: JSON.stringify(providerResponse),
+    });
   }
 
   /**
@@ -179,19 +200,18 @@ export class PaymentConsumer extends WorkerHost {
    */
   private async updatePaymentFailed(
     paymentId: string,
-    attemptId: string | undefined,
+    attemptId: string,
     providerResponse: any,
   ) {
     await this.paymentService.updatePayment(paymentId, {
       status: PaymentStatus.FAILED,
       lastError: JSON.stringify(providerResponse),
+      completedAt: new Date(),
     });
 
-    if (attemptId) {
-      await this.paymentService.updatePaymentAttempt(attemptId, {
-        status: AttemptStatus.FAILED,
-        responsePayload: JSON.stringify(providerResponse),
-      });
-    }
+    await this.paymentService.updatePaymentAttempt(attemptId, {
+      status: AttemptStatus.FAILED,
+      responsePayload: JSON.stringify(providerResponse),
+    });
   }
 }

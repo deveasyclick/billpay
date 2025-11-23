@@ -148,4 +148,13 @@ export class PaymentRepository {
       },
     });
   }
+
+  public async findPaymentAttemptById(id: string) {
+    return this.prisma.paymentAttempt.findUnique({
+      where: { id },
+      include: {
+        provider: true,
+      },
+    });
+  }
 }

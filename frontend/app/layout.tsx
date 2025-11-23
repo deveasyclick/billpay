@@ -5,6 +5,7 @@ import Providers from "./providers";
 import { Toaster } from "sonner";
 import Script from "next/script";
 import { env } from "./lib/env";
+import { getBillingItems } from "./api/get-billing-items";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -16,17 +17,19 @@ export const metadata: Metadata = {
   description: "Pay bills and purchase services instantly",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { data: items } = await getBillingItems();
+
   return (
     <html lang="en" className="light">
       <body
         className={`${manrope.className} bg-background-light text-[#172B4D]`}
       >
-        <Providers>{children}</Providers>
+        <Providers items={items}>{children}</Providers>
         <Script
           src={env.interswitchInlineUrl}
           strategy="afterInteractive" // ensures it loads after hydration

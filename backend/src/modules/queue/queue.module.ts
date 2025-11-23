@@ -12,7 +12,6 @@ import { QueueService } from './queue.service';
       useFactory: async (configService: ConfigService) => ({
         connection: {
           url: configService.get<string>('redisUrl'),
-          keyPrefix: 'billpay',
         },
         defaultJobOptions: {
           attempts: 5,

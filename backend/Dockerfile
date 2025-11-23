@@ -20,6 +20,7 @@ COPY backend ./backend
 # Build Nest app + Prisma client
 RUN cd backend && pnpm prisma generate && pnpm build
 
+ENV CI=true
 # Install production dependencies only
 RUN pnpm install --prod --filter backend
 

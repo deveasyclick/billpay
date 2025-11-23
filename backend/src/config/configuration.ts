@@ -17,6 +17,7 @@ export interface Config {
   vtpassSecretKey: string;
   vtpassApiBaseUrl: string;
   vtpassPublicKey: string;
+  redisUrl: string;
 }
 
 const parseNumber = (value: string | undefined, fallback: number): number => {
@@ -43,6 +44,7 @@ export default function loadConfig(): Config {
     vtpassSecretKey: process.env.VTPASS_SECRET_KEY || '',
     vtpassApiBaseUrl: process.env.VTPASS_API_BASE_URL || '',
     vtpassPublicKey: process.env.VTPASS_PUBLIC_KEY || '',
+    redisUrl: process.env.REDIS_URL || '',
   };
 
   if (config.interswitchClientId && config.interswitchSecretKey) {

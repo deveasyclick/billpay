@@ -5,7 +5,6 @@ import {
   IsNumber,
   IsOptional,
   IsUrl,
-  Length,
   validateSync,
 } from 'class-validator';
 import type { Config } from './configuration';
@@ -48,6 +47,9 @@ class EnvironmentVariables {
 
   @IsNotEmpty()
   INTERSWITCH_MERCHANT_CODE: string;
+
+  @IsNotEmpty()
+  REDIS_URL: string;
 }
 
 export function validateConfig(config: Config) {

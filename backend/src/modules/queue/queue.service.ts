@@ -22,7 +22,7 @@ export class QueueService {
     attemptId,
   }: {
     paymentRef: string;
-    attemptId?: string;
+    attemptId: string;
   }) {
     await this.paymentQueue.add(
       JOB_NAMES.PAYMENT_RECONCILATION,

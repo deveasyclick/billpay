@@ -173,7 +173,6 @@ export class BillsService {
       await this.queueService.addReconciliationJob({
         paymentRef: payment.reference,
         attemptId: attempt.id,
-        itemId: item.id,
       });
       return {
         paymentRef: payment.reference,
@@ -413,7 +412,6 @@ export class BillsService {
       await this.queueService.addReconciliationJob({
         paymentRef: payment.reference,
         attemptId: attempt.id,
-        itemId: item.id,
       });
       return {
         paymentRef: payment.reference,

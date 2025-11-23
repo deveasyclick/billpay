@@ -1,7 +1,11 @@
 export const QUEUE_NAMES = {
-  RECONCILIATION: 'reconciliation',
+  PAYMENT: 'payment',
+  BILLS: 'bills',
 };
 
 export const JOB_NAMES = {
-  RECONCILE_PAYMENT: 'reconcile_payment',
+  PAYMENT_RECONCILATION: 'payment.reconciliation',
+
+  // BILLS
+  BILLS_SYNC_ITEMS: 'bills.sync.items',
 };

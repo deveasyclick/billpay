@@ -6,6 +6,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { PaymentModule } from '../payment/payment.module';
 import { BillRepository } from './bill.repository';
 import { VTPassModule } from 'src/integration/vtpass/vtpass.module';
+import { BillsConsumer } from './bills.consumer';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { VTPassModule } from 'src/integration/vtpass/vtpass.module';
     forwardRef(() => PaymentModule),
     VTPassModule,
   ],
-  providers: [BillsService, BillRepository],
+  providers: [BillsService, BillRepository, BillsConsumer],
   controllers: [BillsController],
   exports: [BillsService],
 })

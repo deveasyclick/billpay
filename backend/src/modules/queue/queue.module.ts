@@ -12,7 +12,6 @@ import { QueueService } from './queue.service';
       useFactory: async (configService: ConfigService) => ({
         connection: {
           url: configService.get<string>('redisUrl'),
-          keyPrefix: 'billpay',
         },
         defaultJobOptions: {
           attempts: 5,
@@ -27,7 +26,10 @@ import { QueueService } from './queue.service';
     }),
 
     BullModule.registerQueue({
-      name: QUEUE_NAMES.RECONCILIATION,
+      name: QUEUE_NAMES.PAYMENT,
+    }),
+    BullModule.registerQueue({
+      name: QUEUE_NAMES.BILLS,
     }),
   ],
   controllers: [],

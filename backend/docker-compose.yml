@@ -18,8 +18,26 @@ services:
       start_period: 15s
     networks:
       - billpay
+  
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "${REDIS_PORT:-6378}:6379"
+    volumes:
+      - billpay-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - billpay
 
 volumes:
   billpay-postgres-data:
+  billpay-redis-data:
 networks:
   billpay:

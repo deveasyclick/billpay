@@ -27,7 +27,10 @@ import { QueueService } from './queue.service';
     }),
 
     BullModule.registerQueue({
-      name: QUEUE_NAMES.RECONCILIATION,
+      name: QUEUE_NAMES.PAYMENT,
+    }),
+    BullModule.registerQueue({
+      name: QUEUE_NAMES.BILLS,
     }),
   ],
   controllers: [],

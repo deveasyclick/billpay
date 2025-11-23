@@ -1,7 +1,7 @@
 import { BillingItemContext } from "@/lib/context/itemContext";
-import { useGetBillingItems } from "../../queries/get-billing-items";
 import { useEffect, useState } from "react";
 import type { BillingItem, Category } from "@/types";
+import { getBillingItems } from "@/api/get-billing-items";
 
 export default function BillingItemProvider({
   children,
@@ -16,23 +16,32 @@ export default function BillingItemProvider({
     TV: [],
     ELECTRICITY: [],
   });
-  const { data: items, isSuccess } = useGetBillingItems();
-
+  //const { data: items, isSuccess } = useGetBillingItems();
   useEffect(() => {
-    if (!isSuccess || !items) return;
-    const grouped: Record<Category, BillingItem[]> = {
-      DATA: [],
-      AIRTIME: [],
-      TV: [],
-      ELECTRICITY: [],
-    };
+    async function fetchItems() {
+      try {
+        const { data: items } = await getBillingItems();
+        if (!items?.length) return;
 
-    items.forEach((item) => {
-      grouped[item.category]?.push(item);
-    });
+        const grouped: Record<Category, BillingItem[]> = {
+          DATA: [],
+          AIRTIME: [],
+          TV: [],
+          ELECTRICITY: [],
+        };
 
-    setGroupedItems(grouped);
-  }, [isSuccess, items]);
+        items.forEach((item) => {
+          grouped[item.category]?.push(item);
+        });
+
+        setGroupedItems(grouped);
+      } catch (err) {
+        console.error("error  fetching items", err);
+      }
+    }
+
+    fetchItems();
+  }, []);
 
   return (
     <BillingItemContext.Provider

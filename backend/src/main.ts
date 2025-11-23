@@ -40,7 +40,7 @@ async function bootstrap() {
   );
   // Cors
   app.enableCors({
-    origin: ['http://localhost:3000'], // your frontend origin
+    origin: ['http://localhost:3000', 'https://billspay.vercel.app'], // your frontend origin
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], // methods you need
     allowedHeaders: ['Content-Type', 'Authorization'], // headers your frontend sends
     credentials: true, //

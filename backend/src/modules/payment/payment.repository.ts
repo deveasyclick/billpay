@@ -137,7 +137,7 @@ export class PaymentRepository {
     id: string,
     data: Pick<
       Prisma.PaymentAttemptUncheckedCreateInput,
-      'status' | 'requestPayload' | 'errorMessage'
+      'status' | 'responsePayload' | 'errorMessage'
     >,
   ) {
     return this.prisma.paymentAttempt.update({

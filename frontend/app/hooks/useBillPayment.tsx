@@ -45,8 +45,7 @@ export default function useBillPayment() {
         category,
         plan,
       });
-      console.log("aaa", env.paystackPublicKey, env.paystackEmail);
-      //validateAmount(options.amount, options.amountType);
+
       new Paystack().newTransaction({
         key: env.paystackPublicKey,
         email: env.paystackEmail,

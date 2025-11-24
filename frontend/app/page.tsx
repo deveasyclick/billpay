@@ -1,7 +1,6 @@
 "use client";
 
 import PaymentTabs from "./components/billpay/PaymentsTabs";
-import Sidebar from "./components/billpay/Sidebar";
 import Header from "./components/layouts/header";
 
 export default function BillPayPage() {
@@ -26,7 +25,6 @@ export default function BillPayPage() {
             <PaymentTabs />
           </div>
         </div>
-        <Sidebar />
       </main>
     </div>
   );

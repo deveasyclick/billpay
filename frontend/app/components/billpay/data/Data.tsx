@@ -47,6 +47,7 @@ export default function DataTab() {
       billingItemId: item.id,
       customerId: data.phone,
       category: Category.DATA,
+      plan: item.name,
     });
   };
   const selectedNetwork = form.watch("network");

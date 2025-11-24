@@ -104,6 +104,7 @@ export default function Electricity() {
       billingItemId: item.id,
       customerId: data.meterNumber,
       category: Category.ELECTRICITY,
+      plan: data.plan.toLocaleLowerCase(),
     });
   };
 

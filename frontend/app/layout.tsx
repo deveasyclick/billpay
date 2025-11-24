@@ -3,8 +3,6 @@ import { Manrope } from "next/font/google";
 import type { Metadata } from "next";
 import Providers from "./providers";
 import { Toaster } from "sonner";
-import Script from "next/script";
-import { env } from "./lib/env";
 import { getBillingItems } from "./api/get-billing-items";
 
 const manrope = Manrope({

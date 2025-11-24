@@ -6,7 +6,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useCreatePayment } from "../../queries/create-payment";
 import { usePayBillQuery } from "../../queries/pay-bill";
-import Paystack from "@paystack/inline-js";
+
+let PaystackModule: typeof import("@paystack/inline-js") | null = null;
 
 type CheckoutOptions = {
   amount: number; // in minor units
@@ -45,7 +46,11 @@ export default function useBillPayment() {
         category,
         plan,
       });
-
+      if (!PaystackModule) {
+        const mod = await import("@paystack/inline-js");
+        PaystackModule = mod.default;
+      }
+      const Paystack = PaystackModule;
       new Paystack().newTransaction({
         key: env.paystackPublicKey,
         email: env.paystackEmail,

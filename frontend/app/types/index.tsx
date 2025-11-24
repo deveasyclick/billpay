@@ -53,13 +53,10 @@ export type PayBillResponse = {
   statusCode: number;
   message: string;
   data: {
-    TransactionRef: string;
-    ApprovedAmount: string;
-    AdditionalInfo: Record<string, unknown>;
-    ResponseCode: string;
-    ResponseDescription: string;
-    ResponseCodeGrouping: string;
-    RechargePIN?: string;
+    amount: number;
+    paymentRef: string;
+    status: "SUCCESS" | "FAILED" | "PENDING";
+    metadata: Record<string, string>;
   };
 };
 

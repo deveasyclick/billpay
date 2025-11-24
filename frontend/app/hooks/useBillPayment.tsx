@@ -25,6 +25,7 @@ export default function useBillPayment() {
   >("idle");
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PayBillResponse["data"] | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { mutateAsync: createPayment } = useCreatePayment();
   const { mutateAsync: payBill } = usePayBillQuery();
 
@@ -58,6 +59,8 @@ export default function useBillPayment() {
         channels: ["card"],
         reference: payment.paymentReference,
         onSuccess: async (transaction) => {
+          setIsDialogOpen(true);
+          setStatus("loading");
           try {
             const result = await payBill({
               paymentReference: payment.paymentReference,
@@ -93,5 +96,12 @@ export default function useBillPayment() {
     }
   };
 
-  return { payBill: pay, error, status, data };
+  const closeDialog = () => {
+    setIsDialogOpen(false);
+    setStatus("idle");
+    setError(null);
+    setData(null);
+  };
+
+  return { payBill: pay, error, status, data, isDialogOpen, closeDialog };
 }

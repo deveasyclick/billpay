@@ -27,7 +27,7 @@ export default function Airtime() {
   const [selectedAmount, setSelectedAmount] = useState<string>("");
   const [isCustom, setIsCustom] = useState<boolean>(false);
   const { airtimeItems } = useBillingItems();
-  const { payBill } = usePayment();
+  const { payBill, status } = usePayment();
 
   const form = useForm<AirtimeFormValues>({
     resolver: zodResolver(AirtimeSchema),
@@ -92,7 +92,7 @@ export default function Airtime() {
           />
 
           {/* Submit */}
-          <PaymentButton disabled={!form.formState.isValid} />
+          <PaymentButton disabled={!form.formState.isValid} status={status} />
         </form>
       </Form>
     </div>

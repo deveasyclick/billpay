@@ -201,7 +201,6 @@ export class BillsService {
     if (!billItem) {
       throw new NotFoundException('Billing item not found!');
     }
-
     const providers = await this.billRepo.findActiveProviders();
     const providerToUse = provider ?? billItem.provider.name;
     const isValidProvider = providers.find((p) => p.name === providerToUse);
@@ -250,7 +249,7 @@ export class BillsService {
     let lastError: any;
 
     for (const provider of providers) {
-      const item = items.find((item) => item.name === provider);
+      const item = items.find((item) => item.provider.name === provider);
       if (!item) {
         this.logger.warn(
           `Provider ${provider} item not found, skipping bill payment...`,

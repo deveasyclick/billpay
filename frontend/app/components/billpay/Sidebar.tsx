@@ -2,62 +2,42 @@ import { useState } from "react";
 
 const interswitchTestCards = [
   {
-    number: "5061050254756707864",
+    number: "4084084084084081",
+    label: "Visa – Success",
+    expiry: "11/26",
+    cvv: "408",
+    pin: "1234",
+    otp: "123456",
+    status: "success",
+  },
+  {
+    number: "5060666666666666666",
     label: "Verve – Success",
-    expiry: "06/26",
-    cvv: "111",
-    pin: "1111",
-  },
-  {
-    number: "5060990580000217499",
-    label: "Verve – Success",
-    expiry: "03/50",
-    cvv: "111",
-    pin: "1111",
-  },
-  {
-    number: "4000000000002503",
-    label: "VISA – Success",
-    expiry: "03/50",
-    cvv: "11",
-    pin: "1111",
-  },
-  {
-    number: "5123450000000008",
-    label: "Mastercard – Success",
-    expiry: "01/39",
-    cvv: "100",
-    pin: "1111",
+    expiry: "11/26",
+    cvv: "123",
+    pin: "1234",
     otp: "123456",
   },
   {
-    number: "5061830100001895",
-    label: "Verve – Failure: Timeout",
-    expiry: "01/40",
-    cvv: "111",
-    pin: "1111",
+    number: "4084080000005408",
+    label: "Verve – Failure: Declined",
+    expiry: "11/26",
+    cvv: "001",
+    pin: "1234",
     otp: "123456",
   },
   {
-    number: "5060990580000000390",
+    number: "4084080000005408",
     label: "Verve – Failure: Insufficient Funds",
-    expiry: "03/50",
-    cvv: "111",
-    pin: "1111",
-    otp: "123456",
-  },
-  {
-    number: "5612330000000000412",
-    label: "Verve – Failure: No Card Record",
-    expiry: "03/50",
-    cvv: "111",
-    pin: "1111",
+    expiry: "11/26",
+    cvv: "787",
+    pin: "1234",
     otp: "123456",
   },
 ];
 const labelColors: Record<string, string> = {
   Success: "bg-green-600 text-white hover:bg-green-700",
-  Timeout: "bg-red-600 text-white hover:bg-red-700",
+  Declined: "bg-red-600 text-white hover:bg-red-700",
   "Insufficient Funds": "bg-orange-500 text-white hover:bg-orange-600",
   "No Card Record": "bg-gray-500 text-white hover:bg-gray-600",
 };
@@ -140,7 +120,7 @@ export default function Sidebar() {
                 <span>Exp: {card.expiry}</span>
                 <span>CVV: {card.cvv}</span>
                 <span>PIN: {card.pin}</span>
-                {card.otp && <span>OTP: {card.otp}</span>}
+                {card?.otp && <span>OTP: {card.otp}</span>}
               </div>
             </div>
           );

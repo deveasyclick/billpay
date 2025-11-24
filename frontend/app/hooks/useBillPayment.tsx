@@ -1,10 +1,13 @@
+"use client";
+
 import { env } from "@/lib/env";
 import type { Category, PayBillResponse, Providers } from "@/types";
-import type { InterSwitchCheckoutResponse } from "@/types/checkout";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useCreatePayment } from "../../queries/create-payment";
 import { usePayBillQuery } from "../../queries/pay-bill";
+
+let PaystackModule: typeof import("@paystack/inline-js") | null = null;
 
 type CheckoutOptions = {
   amount: number; // in minor units
@@ -24,19 +27,15 @@ export default function useBillPayment() {
   const [data, setData] = useState<PayBillResponse["data"] | null>(null);
   const { mutateAsync: createPayment } = useCreatePayment();
   const { mutateAsync: payBill } = usePayBillQuery();
+
   const pay = async ({
     amount,
     billingItemId,
     customerId,
-    site_redirect_path = "/",
     category,
     plan,
     provider,
   }: CheckoutOptions) => {
-    if (!window.webpayCheckout) {
-      toast.info("Checkout loading, try again later");
-      return;
-    }
     setStatus("loading");
     setError(null);
     try {
@@ -47,25 +46,19 @@ export default function useBillPayment() {
         category,
         plan,
       });
-
-      //validateAmount(options.amount, options.amountType);
-      window.webpayCheckout({
+      if (!PaystackModule) {
+        const mod = await import("@paystack/inline-js");
+        PaystackModule = mod.default;
+      }
+      const Paystack = PaystackModule;
+      new Paystack().newTransaction({
+        key: env.paystackPublicKey,
+        email: env.paystackEmail,
         amount: payment.amount * 100,
-        currency: 566, // NGN
-        site_redirect_url: `${window.location.origin}${site_redirect_path}`,
-        cust_id: customerId,
-        merchant_code: env.interswitchMerchantCode,
-        pay_item_id: env.interswitchPayItemId,
-        txn_ref: payment.paymentReference,
-        mode: env.environment === "production" ? "LIVE" : "TEST",
-        pay_item_name: billingItemId,
-        onComplete: async (resp: InterSwitchCheckoutResponse) => {
-          console.log("resp", resp);
-          if (resp.resp === "Z6") {
-            toast.error("Payment cancelled 😢");
-            return;
-          }
-          if (resp.resp === "00") {
+        channels: ["card"],
+        reference: payment.paymentReference,
+        onSuccess: async (transaction) => {
+          try {
             const result = await payBill({
               paymentReference: payment.paymentReference,
               billingItemId,
@@ -74,8 +67,22 @@ export default function useBillPayment() {
             setData(result);
             setStatus("success");
             setError(null);
+          } catch (err: any) {
+            console.log(err);
+            setStatus("error");
+            setError(err.message);
           }
-          setError("An error occurred. Please try again later.");
+        },
+        onLoad: (response) => {
+          console.log("onLoad: ", response);
+        },
+        onCancel: () => {
+          setStatus("idle");
+          toast.error("Payment cancelled 😢");
+        },
+        onError: (error) => {
+          console.log("Error: ", error.message);
+          setError(error.message);
           setStatus("error");
         },
       });

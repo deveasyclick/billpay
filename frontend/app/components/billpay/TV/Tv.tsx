@@ -72,7 +72,6 @@ export default function TVTab() {
     }
   }, [isError, error, form]);
   const onSubmit = (data: TVFormValues) => {
-    console.log("data", data);
     const item = tvItems.find((item) => item.internalCode === data.package);
     if (!item) {
       toast.error("Payment failed. Please try again later.");
@@ -92,8 +91,9 @@ export default function TVTab() {
     payBill({
       amount: Number(item.amount),
       billingItemId: item.id,
-      customerId: data.package,
+      customerId: data.smartCardNumber,
       category: Category.TV,
+      plan: data.package,
     });
   };
 

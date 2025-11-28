@@ -1,11 +1,9 @@
 <img width="834" height="844" alt="image" src="https://github.com/user-attachments/assets/4b930170-9d7b-4e62-b39f-7cd5a2066d5f" />
 
-<img width="558" height="904" alt="image" src="https://github.com/user-attachments/assets/8686083e-163d-498b-9b35-43c13bc7af5f" />
-
 
 # 🧾 Billpay
 
-Link: [Billpay](https://billspay.vercel.app/)
+Link: [Billpay](https://billspay.vercel.app)
 
 The **Billpay** monorepo powers a complete **bill payment platform** consisting of:
 

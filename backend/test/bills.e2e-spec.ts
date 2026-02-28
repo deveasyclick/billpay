@@ -10,11 +10,23 @@ import {
 } from './mocks/interswitch';
 import { CacheModule } from '@nestjs/cache-manager';
 import { PaymentModule } from 'src/modules/payment/payment.module';
+import { QueueService } from '../src/modules/queue/queue.service';
+import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
+import { HttpAdapterHost } from '@nestjs/core';
+import { BillsConsumer } from '../src/modules/bills/bills.consumer';
 
 // Mock InterSwitchService so tests don’t hit real API
 
 describe('BillsController (e2e)', () => {
   let app: INestApplication;
+
+  const mockQueueService = {
+    addReconciliationJob: jest.fn(),
+  };
+
+  const mockBillsConsumer = {
+    process: jest.fn(),
+  };
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -24,6 +36,16 @@ describe('BillsController (e2e)', () => {
         PaymentModule,
         BillsModule,
       ],
+      providers: [
+        {
+          provide: QueueService,
+          useValue: mockQueueService,
+        },
+        {
+          provide: BillsConsumer,
+          useValue: mockBillsConsumer,
+        },
+      ],
     })
       .overrideProvider(InterSwitchService)
       .useValue(mockInterSwitchService)
@@ -31,6 +53,11 @@ describe('BillsController (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+
+    // TEAM_002: Register the global exception filter in tests
+    const httpAdapterHost = app.get(HttpAdapterHost);
+    app.useGlobalFilters(new AllExceptionsFilter(httpAdapterHost));
+
     await app.init();
   });
 

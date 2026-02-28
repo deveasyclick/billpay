@@ -1,5 +1,5 @@
 /**
- * TEAM_002: Utility to extract error messages from the backend's standardized error response.
+ *Utility to extract error messages from the backend's standardized error response.
  */
 export function getErrorMessage(
   json: any,

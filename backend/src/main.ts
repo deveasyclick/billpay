@@ -17,7 +17,6 @@ async function bootstrap() {
   });
 
   const httpAdapterHost = app.get(HttpAdapterHost);
-  // TEAM_002: Register global exception filter
   app.useGlobalFilters(new AllExceptionsFilter(httpAdapterHost));
 
   // Apply the logging interceptor globally

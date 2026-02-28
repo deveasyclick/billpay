@@ -34,7 +34,6 @@ export class BillsController {
   @ApiBody({ type: PayBillDTO })
   @ApiOkResponse({ type: PayBillResponseDTO })
   async payBill(@Body() dto: PayBillDTO): Promise<PayBillResponseDTO> {
-    // TEAM_002: Rely on global exception filter for error handling
     const res = await this.billsService.processBillPayment(dto);
     return {
       statusCode: 200,
@@ -76,7 +75,6 @@ export class BillsController {
   async validateCustomerV2(
     @Body() dto: ValidateCustomerDTO,
   ): Promise<ValidateCustomerResponseDTO> {
-    // TEAM_002: Removing local try-catch as AllExceptionsFilter handles this now
     const res = await this.billsService.validateCustomer(dto);
     return {
       statusCode: 200,

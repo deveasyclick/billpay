@@ -20,7 +20,6 @@ export async function CreatePayment(
   }
 
   if (!res.ok) {
-    // TEAM_002: Consistently extract error message
     throw new Error(getErrorMessage(json, "Failed to create payment"));
   }
   return json.data;

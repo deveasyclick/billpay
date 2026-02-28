@@ -20,7 +20,6 @@ export async function payBill(
   }
 
   if (!res.ok) {
-    // TEAM_002: Use the new utility to extract error messages
     throw new Error(getErrorMessage(payBillResponse, "Bill payment failed"));
   }
 

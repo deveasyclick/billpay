@@ -36,7 +36,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? (exceptionResponse as any).message
         : exceptionResponse;
 
-    // TEAM_002: Standardize error response format
     const responseBody = {
       statusCode: httpStatus,
       message: Array.isArray(message) ? message[0] : message,

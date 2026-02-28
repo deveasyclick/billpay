@@ -24,7 +24,6 @@ export async function validateCustomer(
   }
 
   if (!res.ok) {
-    // TEAM_002: Use the standardized error extractor
     throw new Error(getErrorMessage(json, "Failed to validate customer"));
   }
 

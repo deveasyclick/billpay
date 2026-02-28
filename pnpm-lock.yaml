@@ -262,6 +262,9 @@ importers:
       '@types/react-dom':
         specifier: ^19
         version: 19.2.3(@types/react@19.2.4)
+      baseline-browser-mapping:
+        specifier: ^2.10.0
+        version: 2.10.0
       tailwindcss:
         specifier: ^4
         version: 4.1.17
@@ -7802,7 +7805,7 @@ snapshots:
 
   browserslist@4.28.0:
     dependencies:
-      baseline-browser-mapping: 2.8.27
+      baseline-browser-mapping: 2.10.0
       caniuse-lite: 1.0.30001754
       electron-to-chromium: 1.5.250
       node-releases: 2.0.27

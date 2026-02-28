@@ -1,4 +1,5 @@
 import { env } from "@/lib/env";
+import { getErrorMessage } from "@/lib/error";
 import type { PayBillRequest, PayBillResponse } from "@/types";
 
 export async function payBill(
@@ -19,7 +20,7 @@ export async function payBill(
   }
 
   if (!res.ok) {
-    throw new Error(payBillResponse?.message ?? "Bill payment failed");
+    throw new Error(getErrorMessage(payBillResponse, "Bill payment failed"));
   }
 
   return payBillResponse.data;

@@ -34,17 +34,12 @@ export class BillsController {
   @ApiBody({ type: PayBillDTO })
   @ApiOkResponse({ type: PayBillResponseDTO })
   async payBill(@Body() dto: PayBillDTO): Promise<PayBillResponseDTO> {
-    try {
-      const res = await this.billsService.processBillPayment(dto);
-      return {
-        statusCode: 200,
-        message: 'Success',
-        data: res,
-      };
-    } catch (err) {
-      this.logger.error('error ', err?.response?.data ?? err);
-      throw new InternalServerErrorException('Payment failed');
-    }
+    const res = await this.billsService.processBillPayment(dto);
+    return {
+      statusCode: 200,
+      message: 'Success',
+      data: res,
+    };
   }
 
   @Get('items')
@@ -80,20 +75,11 @@ export class BillsController {
   async validateCustomerV2(
     @Body() dto: ValidateCustomerDTO,
   ): Promise<ValidateCustomerResponseDTO> {
-    try {
-      const res = await this.billsService.validateCustomer(dto);
-      return {
-        statusCode: 200,
-        message: 'Success',
-        data: res,
-      };
-    } catch (err) {
-      const error = err?.response?.data ?? err;
-      this.logger.error('err', error);
-      throw new InternalServerErrorException({
-        message: 'Customer validation failed',
-        details: error,
-      });
-    }
+    const res = await this.billsService.validateCustomer(dto);
+    return {
+      statusCode: 200,
+      message: 'Success',
+      data: res,
+    };
   }
 }

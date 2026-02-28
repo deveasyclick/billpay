@@ -1,4 +1,5 @@
 import { env } from "@/lib/env";
+import { getErrorMessage } from "@/lib/error";
 import type { CreatePaymentRequest, CreatePaymentResponse } from "@/types";
 
 export async function CreatePayment(
@@ -19,7 +20,7 @@ export async function CreatePayment(
   }
 
   if (!res.ok) {
-    throw new Error(`Failed to create payment ${res.statusText}`);
+    throw new Error(getErrorMessage(json, "Failed to create payment"));
   }
   return json.data;
 }

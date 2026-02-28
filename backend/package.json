@@ -34,6 +34,7 @@
     "@nestjs/graphql": "^13.2.0",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.2.0",
+    "@nestjs/throttler": "^6.5.0",
     "@prisma/client": "6.16.1",
     "bullmq": "^5.63.0",
     "cache-manager": "^7.2.0",

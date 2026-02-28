@@ -18,6 +18,8 @@ export interface Config {
   vtpassApiBaseUrl: string;
   vtpassPublicKey: string;
   redisUrl: string;
+  throttlerTtl: number;
+  throttlerLimit: number;
 }
 
 const parseNumber = (value: string | undefined, fallback: number): number => {
@@ -45,6 +47,8 @@ export default function loadConfig(): Config {
     vtpassApiBaseUrl: process.env.VTPASS_API_BASE_URL || '',
     vtpassPublicKey: process.env.VTPASS_PUBLIC_KEY || '',
     redisUrl: process.env.REDIS_URL || '',
+    throttlerTtl: parseNumber(process.env.THROTTLER_TTL, 60),
+    throttlerLimit: parseNumber(process.env.THROTTLER_LIMIT, 10),
   };
 
   if (config.interswitchClientId && config.interswitchSecretKey) {

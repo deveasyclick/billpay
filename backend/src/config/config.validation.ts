@@ -50,6 +50,14 @@ class EnvironmentVariables {
 
   @IsNotEmpty()
   REDIS_URL: string;
+
+  @IsNumber()
+  @IsOptional()
+  THROTTLER_TTL: number;
+
+  @IsNumber()
+  @IsOptional()
+  THROTTLER_LIMIT: number;
 }
 
 export function validateConfig(config: Config) {

@@ -1,8 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  Global,
+  INestApplication,
+  Module,
+  ValidationPipe,
+} from '@nestjs/common';
 import request from 'supertest';
-import { BillsModule } from '../src/modules/bills/bills.module';
-import { InterSwitchService } from '../src/integration/interswitch/interswitch.service';
+import { BillsModule } from 'src/modules/bills/bills.module';
+import { InterSwitchService } from 'src/integration/interswitch/interswitch.service';
 import { ConfigModule } from '@nestjs/config';
 import {
   mockBillingItemsResponseData,
@@ -14,6 +19,21 @@ import { QueueService } from '../src/modules/queue/queue.service';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { HttpAdapterHost } from '@nestjs/core';
 import { BillsConsumer } from '../src/modules/bills/bills.consumer';
+import { VTPassService } from 'src/integration/vtpass/vtpass.service';
+
+@Global()
+@Module({
+  providers: [
+    {
+      provide: QueueService,
+      useValue: {
+        addReconciliationJob: jest.fn().mockResolvedValue(undefined),
+      },
+    },
+  ],
+  exports: [QueueService],
+})
+class MockQueueModule {}
 
 // Mock InterSwitchService so tests don’t hit real API
 
@@ -29,8 +49,19 @@ describe('BillsController (e2e)', () => {
   };
 
   beforeAll(async () => {
+    const mockBillsConsumer = {
+      process: jest.fn(),
+    };
+
+    const mockVTPassService = {
+      pay: jest.fn(),
+      getTransaction: jest.fn(),
+      validateCustomer: jest.fn(),
+    };
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
+        MockQueueModule,
         ConfigModule.forRoot({ isGlobal: true }),
         CacheModule.register(),
         PaymentModule,
@@ -49,6 +80,10 @@ describe('BillsController (e2e)', () => {
     })
       .overrideProvider(InterSwitchService)
       .useValue(mockInterSwitchService)
+      .overrideProvider(VTPassService)
+      .useValue(mockVTPassService)
+      .overrideProvider(BillsConsumer)
+      .useValue(mockBillsConsumer)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -87,11 +122,9 @@ describe('BillsController (e2e)', () => {
         paymentCode: 'MTN001',
       });
       expect(res.body.statusCode).toBe(200);
-      expect(res.body.data).toEqual({
-        customerId: '08012345678',
-        amount: 1000,
-        requestReference: 'ref123',
-        paymentCode: 'MTN001',
+      expect(res.body.data).toMatchObject({
+        paymentRef: 'ref123',
+        status: 'SUCCESS',
       });
     });
 

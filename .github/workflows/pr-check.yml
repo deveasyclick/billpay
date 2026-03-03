@@ -87,3 +87,7 @@ jobs:
       - name: Build Backend
         if: ${{ steps.backend-changes.outputs.changed == 'true' }}
         run: pnpm -F backend build
+
+      - name: Run Backend Tests
+        if: ${{ steps.backend-changes.outputs.changed == 'true' }}
+        run: pnpm -F backend test:e2e

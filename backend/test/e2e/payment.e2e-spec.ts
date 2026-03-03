@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { PrismaService } from 'src/prisma.service';
-import { createE2EApp } from './e2e-utils';
+import { createE2EApp } from '../infra/e2e-utils';
 import { BillCategory, Providers } from '@prisma/client';
 
 describe('PaymentController (e2e) - Transaction Isolation Demo', () => {

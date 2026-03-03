@@ -13,8 +13,8 @@
   "moduleNameMapper": {
     "^src/(.*)$": "<rootDir>/src/$1"
   },
-  "globalSetup": "<rootDir>/test/global-setup.ts",
-  "globalTeardown": "<rootDir>/test/global-teardown.ts",
+  "globalSetup": "<rootDir>/test/infra/global-setup.ts",
+  "globalTeardown": "<rootDir>/test/infra/global-teardown.ts",
   "testTimeout": 60000,
   "verbose": true
 }

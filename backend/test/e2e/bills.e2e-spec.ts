@@ -1,42 +1,18 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { createE2EApp } from './e2e-utils';
+import { createE2EApp } from '../infra/e2e-utils';
 
 import { BillsConsumer } from 'src/modules/bills/bills.consumer';
 import { QueueService } from 'src/modules/queue/queue.service';
 import { InterSwitchService } from 'src/integration/interswitch/interswitch.service';
 import { VTPassService } from 'src/integration/vtpass/vtpass.service';
-import { mockInterSwitchService } from './mocks/interswitch';
+import { mockInterSwitchService } from '../mocks/interswitch';
+import { mockVTPassService } from '../mocks/vtpass';
+import { mockQueueService, mockBillsConsumer } from '../mocks/queue';
 import { BillsService } from 'src/modules/bills/bills.service';
 
 describe('BillsController (e2e)', () => {
   let app: INestApplication;
-
-  const mockQueueService = { addReconciliationJob: jest.fn() };
-  const mockBillsConsumer = { process: jest.fn() };
-  const mockVTPassService = {
-    pay: jest.fn().mockResolvedValue({
-      status: 'delivered',
-      amount: 100,
-      request_id: 'ref123',
-    }),
-    getTransaction: jest.fn(),
-    validateCustomer: jest.fn(),
-    getPlans: jest.fn().mockResolvedValue([
-      {
-        category: 'AIRTIME',
-        billerName: 'MTN',
-        name: 'MTN Airtime',
-        amount: 0,
-        amountType: 0,
-        active: true,
-        internalCode: 'mtn-airtime',
-        paymentCode: 'mtn-airtime',
-        billerId: 'mtn',
-        provider: 'VTPASS',
-      },
-    ]),
-  };
 
   let billsService: BillsService;
 

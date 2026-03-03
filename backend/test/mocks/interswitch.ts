@@ -109,15 +109,32 @@ export const mockInterSwitchService = {
     ],
   }),
   confirmTransaction: jest.fn().mockResolvedValue({
-    Amount: 100000,
+    Amount: 10000,
     ResponseCode: '00',
     TransactionReference: 'ref123',
+    ResponseCodeGrouping: 'SUCCESSFUL',
   }),
   pay: jest.fn().mockResolvedValue({
     PaymentReference: 'PR123',
     ResponseCode: '90000',
+    ResponseCodeGrouping: 'SUCCESSFUL',
+    ApprovedAmount: 10099,
   }),
   refreshAllPlansFromInterswitch: jest
     .fn()
     .mockResolvedValue(mockBillingItemsResponseData),
+  findPlans: jest.fn().mockResolvedValue([
+    {
+      category: 'AIRTIME',
+      billerName: 'Etisalat Recharge Top-Up',
+      name: 'Etisalat 100',
+      amount: 10099,
+      amountType: 0,
+      active: true,
+      internalCode: 'etisalat-airtime-100',
+      paymentCode: '12001',
+      billerId: '120',
+      provider: 'INTERSWITCH',
+    },
+  ]),
 };

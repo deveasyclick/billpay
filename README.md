@@ -7,7 +7,10 @@
 
 # 🧾 Billpay
 
-Link: [Billpay](https://billspay.vercel.app)
+[Live demo](https://billspay.vercel.app) · [MIT license](LICENSE)
+
+This is the full-stack payment application. For the reusable npm package, see
+[BillPay SDK](https://github.com/deveasyclick/billpay-sdk) ([npm: billpay](https://www.npmjs.com/package/billpay)).
 
 The **Billpay** monorepo powers a complete **bill payment platform** consisting of:
 
